@@ -1,0 +1,113 @@
+from __future__ import annotations
+
+from pathlib import Path
+import argparse
+
+import pandas as pd
+
+
+DEFAULT_INPUT_FILE = Path("data/processed/region_daily_sst_history.parquet")
+DEFAULT_OUTPUT_FILE = Path("data/processed/region_climatology.parquet")
+
+
+def load_region_history(input_path: Path) -> pd.DataFrame:
+    """Load the backfilled daily regional SST history table."""
+    return pd.read_parquet(input_path)
+
+
+def prepare_history(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Prepare the regional SST history for climatology calculations.
+
+    Steps:
+    - ensure the date column is datetime
+    - derive day_of_year
+    - optionally drop leap day to keep climatology simple for MVP
+    """
+    prepared = df.copy()
+
+    prepared["date"] = pd.to_datetime(prepared["date"])
+    prepared["day_of_year"] = prepared["date"].dt.dayofyear
+
+    # For a simple MVP climatology, drop Feb 29 to avoid day-of-year alignment issues.
+    leap_day_mask = (prepared["date"].dt.month == 2) & (prepared["date"].dt.day == 29)
+    prepared = prepared.loc[~leap_day_mask].copy()
+
+    return prepared
+
+
+def calculate_climatology(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Calculate day-of-year climatology by region.
+
+    Outputs:
+    - clim_mean_sst_c: average SST for that region and calendar day
+    - clim_p90_sst_c: optional 90th percentile threshold for later MHW logic
+    - sample_size: number of observations contributing to that climatology row
+    """
+    group_cols = ["region_id", "region_code", "region_name", "day_of_year"]
+
+    climatology = (
+        df.groupby(group_cols, dropna=False)
+        .agg(
+            clim_mean_sst_c=("mean_sst_c", "mean"),
+            clim_p90_sst_c=("mean_sst_c", lambda x: x.quantile(0.90)),
+            sample_size=("mean_sst_c", "count"),
+        )
+        .reset_index()
+        .sort_values(["region_id", "day_of_year"])
+        .reset_index(drop=True)
+    )
+
+    climatology["clim_mean_sst_c"] = climatology["clim_mean_sst_c"].round(2)
+    climatology["clim_p90_sst_c"] = climatology["clim_p90_sst_c"].round(2)
+    climatology["sample_size"] = climatology["sample_size"].astype(int)
+    climatology["region_id"] = climatology["region_id"].astype(int)
+
+    return climatology
+
+
+def save_output(df: pd.DataFrame, output_path: Path) -> None:
+    """Save the climatology table to parquet."""
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    df.to_parquet(output_path, index=False)
+
+
+def main(input_path: Path, output_path: Path) -> None:
+    print(f"Loading regional SST history: {input_path}")
+    history_df = load_region_history(input_path)
+    print(f"Loaded {len(history_df):,} history rows")
+
+    prepared_df = prepare_history(history_df)
+    print(f"Rows after preparation: {len(prepared_df):,}")
+
+    climatology_df = calculate_climatology(prepared_df)
+    print(f"Created {len(climatology_df):,} climatology rows")
+
+    print("Preview:")
+    print(climatology_df.head())
+
+    save_output(climatology_df, output_path)
+    print(f"Saved climatology output to: {output_path}")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Calculate day-of-year SST climatology by NZ coastal region.",
+    )
+    parser.add_argument(
+        "--input-file",
+        default=str(DEFAULT_INPUT_FILE),
+        help="Path to the regional SST history parquet produced by backfill.py",
+    )
+    parser.add_argument(
+        "--output-file",
+        default=str(DEFAULT_OUTPUT_FILE),
+        help="Path where the climatology parquet will be saved.",
+    )
+    args = parser.parse_args()
+
+    main(
+        input_path=Path(args.input_file),
+        output_path=Path(args.output_file),
+    )
