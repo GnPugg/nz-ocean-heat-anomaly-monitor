@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from datetime import date
 import argparse
 
 import pandas as pd
@@ -8,6 +9,18 @@ import pandas as pd
 
 DEFAULT_INPUT_FILE = Path("data/processed/region_daily_sst_history.parquet")
 DEFAULT_OUTPUT_FILE = Path("data/processed/region_climatology.parquet")
+
+
+def parse_iso_date(value: str | None) -> pd.Timestamp | None:
+    """Parse optional CLI date in YYYY-MM-DD format."""
+    if value is None:
+        return None
+    try:
+        return pd.Timestamp(date.fromisoformat(value))
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(
+            f"Invalid date '{value}'. Use YYYY-MM-DD format."
+        ) from exc
 
 
 def load_region_history(input_path: Path) -> pd.DataFrame:
@@ -22,18 +35,34 @@ def prepare_history(df: pd.DataFrame) -> pd.DataFrame:
     Steps:
     - ensure the date column is datetime
     - derive day_of_year
-    - optionally drop leap day to keep climatology simple for MVP
+    - drop leap day to keep climatology simple for MVP
     """
     prepared = df.copy()
 
     prepared["date"] = pd.to_datetime(prepared["date"])
     prepared["day_of_year"] = prepared["date"].dt.dayofyear
 
-    # For a simple MVP climatology, drop Feb 29 to avoid day-of-year alignment issues.
     leap_day_mask = (prepared["date"].dt.month == 2) & (prepared["date"].dt.day == 29)
     prepared = prepared.loc[~leap_day_mask].copy()
 
     return prepared
+
+
+def filter_baseline_period(
+    df: pd.DataFrame,
+    baseline_start: pd.Timestamp | None,
+    baseline_end: pd.Timestamp | None,
+) -> pd.DataFrame:
+    """Filter history down to the climatology baseline period."""
+    filtered = df.copy()
+
+    if baseline_start is not None:
+        filtered = filtered.loc[filtered["date"] >= baseline_start].copy()
+
+    if baseline_end is not None:
+        filtered = filtered.loc[filtered["date"] <= baseline_end].copy()
+
+    return filtered
 
 
 def calculate_climatology(df: pd.DataFrame) -> pd.DataFrame:
@@ -42,7 +71,7 @@ def calculate_climatology(df: pd.DataFrame) -> pd.DataFrame:
 
     Outputs:
     - clim_mean_sst_c: average SST for that region and calendar day
-    - clim_p90_sst_c: optional 90th percentile threshold for later MHW logic
+    - clim_p90_sst_c: 90th percentile threshold for later warm-event logic
     - sample_size: number of observations contributing to that climatology row
     """
     group_cols = ["region_id", "region_code", "region_name", "day_of_year"]
@@ -59,8 +88,6 @@ def calculate_climatology(df: pd.DataFrame) -> pd.DataFrame:
         .reset_index(drop=True)
     )
 
-    climatology["clim_mean_sst_c"] = climatology["clim_mean_sst_c"].round(2)
-    climatology["clim_p90_sst_c"] = climatology["clim_p90_sst_c"].round(2)
     climatology["sample_size"] = climatology["sample_size"].astype(int)
     climatology["region_id"] = climatology["region_id"].astype(int)
 
@@ -73,7 +100,12 @@ def save_output(df: pd.DataFrame, output_path: Path) -> None:
     df.to_parquet(output_path, index=False)
 
 
-def main(input_path: Path, output_path: Path) -> None:
+def main(
+    input_path: Path,
+    output_path: Path,
+    baseline_start: pd.Timestamp | None,
+    baseline_end: pd.Timestamp | None,
+) -> None:
     print(f"Loading regional SST history: {input_path}")
     history_df = load_region_history(input_path)
     print(f"Loaded {len(history_df):,} history rows")
@@ -81,7 +113,17 @@ def main(input_path: Path, output_path: Path) -> None:
     prepared_df = prepare_history(history_df)
     print(f"Rows after preparation: {len(prepared_df):,}")
 
-    climatology_df = calculate_climatology(prepared_df)
+    baseline_df = filter_baseline_period(
+        prepared_df,
+        baseline_start=baseline_start,
+        baseline_end=baseline_end,
+    )
+    print(f"Rows in baseline period: {len(baseline_df):,}")
+
+    if baseline_df.empty:
+        raise RuntimeError("No rows found in the requested baseline period.")
+
+    climatology_df = calculate_climatology(baseline_df)
     print(f"Created {len(climatology_df):,} climatology rows")
 
     print("Preview:")
@@ -105,9 +147,23 @@ if __name__ == "__main__":
         default=str(DEFAULT_OUTPUT_FILE),
         help="Path where the climatology parquet will be saved.",
     )
+    parser.add_argument(
+        "--baseline-start",
+        type=parse_iso_date,
+        default=None,
+        help="Baseline start date in YYYY-MM-DD format.",
+    )
+    parser.add_argument(
+        "--baseline-end",
+        type=parse_iso_date,
+        default=None,
+        help="Baseline end date in YYYY-MM-DD format.",
+    )
     args = parser.parse_args()
 
     main(
         input_path=Path(args.input_file),
         output_path=Path(args.output_file),
+        baseline_start=args.baseline_start,
+        baseline_end=args.baseline_end,
     )

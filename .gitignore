@@ -1,0 +1,11 @@
+# Raw NOAA/OISST downloads
+data/raw/
+*.nc
+
+# Processed outputs
+data/processed/
+
+# Environment / secrets
+.env
+.venv/
+__pycache__/

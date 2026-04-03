@@ -59,11 +59,6 @@ def aggregate_region_daily_sst(df: pd.DataFrame) -> pd.DataFrame:
         .reset_index()
     )
 
-    # Round SST metrics for cleaner downstream outputs.
-    aggregated["mean_sst_c"] = aggregated["mean_sst_c"].round(2)
-    aggregated["min_sst_c"] = aggregated["min_sst_c"].round(2)
-    aggregated["max_sst_c"] = aggregated["max_sst_c"].round(2)
-
     # region_id often comes back as float after joins if unmatched rows existed.
     aggregated["region_id"] = aggregated["region_id"].astype(int)
 
