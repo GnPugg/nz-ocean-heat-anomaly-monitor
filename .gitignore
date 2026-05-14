@@ -1,11 +1,16 @@
-# Raw NOAA/OISST downloads
-data/raw/
-*.nc
+.env
 
-# Processed outputs
+data/raw/
+data/interim/
 data/processed/
 
-# Environment / secrets
-.env
-.venv/
 __pycache__/
+*.pyc
+
+.venv/
+venv/
+
+*.nc
+*.parquet
+
+.DS_Store
