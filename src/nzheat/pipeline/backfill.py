@@ -22,7 +22,6 @@ from nzheat.transform.region_aggregate import (
     prepare_for_aggregation,
 )
 
-
 DEFAULT_RAW_DIR = Path("data/raw/oisst")
 DEFAULT_REGIONS_FILE = Path("assets/regions/nz_coastal_regions.geojson")
 DEFAULT_OUTPUT_FILE = Path("data/processed/region_daily_sst_history.parquet")
@@ -83,8 +82,9 @@ def run_backfill(
     output_path: Path,
     *,
     overwrite_download: bool = False,
+    append: bool = False,
 ) -> pd.DataFrame:
-    """Run a multi-day backfill and save the combined region-day SST history."""
+    """Run a multi-day backfill and save or append regional SST history."""
     dates = build_date_list(start_date, end_date)
     regions_gdf = load_regions(regions_path)
 
@@ -111,16 +111,38 @@ def run_backfill(
     if not all_results:
         raise RuntimeError("No dates were processed successfully.")
 
-    history_df = pd.concat(all_results, ignore_index=True)
-    history_df = history_df.sort_values(["date", "region_id"]).reset_index(drop=True)
+    new_df = pd.concat(all_results, ignore_index=True)
+    new_df["date"] = pd.to_datetime(new_df["date"]).dt.date
+
+    if append and output_path.exists():
+        print(f"\nAppend mode enabled. Reading existing history: {output_path}")
+
+        existing_df = pd.read_parquet(output_path)
+        existing_df["date"] = pd.to_datetime(existing_df["date"]).dt.date
+
+        history_df = pd.concat([existing_df, new_df], ignore_index=True)
+
+        history_df = (
+            history_df.drop_duplicates(subset=["date", "region_id"], keep="last")
+            .sort_values(["date", "region_id"])
+            .reset_index(drop=True)
+        )
+
+    else:
+        if append:
+            print("\nAppend mode enabled, but no existing history file was found.")
+            print("Creating a new history file.")
+
+        history_df = new_df.sort_values(["date", "region_id"]).reset_index(drop=True)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     history_df.to_parquet(output_path, index=False)
 
     print("\nBackfill complete.")
-    print(f"Saved {len(history_df):,} rows to: {output_path}")
+    print(f"Saved {len(history_df):,} total rows to: {output_path}")
+    print(f"Date range: {history_df['date'].min()} to {history_df['date'].max()}")
     print("Preview:")
-    print(history_df.head())
+    print(history_df.tail())
 
     return history_df
 
@@ -171,6 +193,11 @@ if __name__ == "__main__":
         action="store_true",
         help="Re-download files even if they already exist locally.",
     )
+    parser.add_argument(
+        "--append",
+        action="store_true",
+        help="Append new dates to the existing history parquet instead of overwriting it.",
+    )
     args = parser.parse_args()
 
     run_backfill(
@@ -180,4 +207,5 @@ if __name__ == "__main__":
         raw_dir=Path(args.raw_dir),
         output_path=Path(args.output_file),
         overwrite_download=args.overwrite_download,
+        append=args.append,
     )
