@@ -1,0 +1,84 @@
+=============================== 
+Daily update started at Fri 15/05/2026 17:41:53.50 
+Processing date: 2026-04-30 
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "C:\Users\puggi\Documents\Gianby\data eng\nz-ocean-heat-anomaly-monitor\src\nzheat\pipeline\backfill.py", line 203, in <module>
+    run_backfill(
+  File "C:\Users\puggi\Documents\Gianby\data eng\nz-ocean-heat-anomaly-monitor\src\nzheat\pipeline\backfill.py", line 112, in run_backfill
+    raise RuntimeError("No dates were processed successfully.")
+RuntimeError: No dates were processed successfully.
+Processing 1 day(s) from 2026-04-30 to 2026-04-30
+Using regions file: assets\regions\nz_coastal_regions.geojson
+
+--- 2026-04-30 ---
+Failed for 2026-04-30: HTTP error while downloading OISST for 2026-04-30: 404 Client Error: Not Found for url: https://www.ncei.noaa.gov/data/sea-surface-temperature-optimum-interpolation/v2.1/access/avhrr/202604/oisst-avhrr-v02r01.20260430.nc
+Backfill failed. Stopping before analytics/load. 
+Daily update failed at Fri 15/05/2026 17:41:56.31 
+=============================== 
+Daily update started at Mon 18/05/2026  8:55:10.61 
+Processing date: 2026-04-30 
+Processing 1 day(s) from 2026-04-30 to 2026-04-30
+Using regions file: assets\regions\nz_coastal_regions.geojson
+
+--- 2026-04-30 ---
+Created 6 region-day rows
+
+Append mode enabled. Reading existing history: data\processed\region_daily_sst_history.parquet
+
+Backfill complete.
+Saved 2,904 total rows to: data\processed\region_daily_sst_history.parquet
+Date range: 2025-01-01 to 2026-04-30
+Preview:
+            date  region_id region_code  ... cell_count  min_sst_c  max_sst_c
+2899  2026-04-30          2         WNI  ...         65      13.82  17.820000
+2900  2026-04-30          3         ENI  ...        184      15.07  18.459999
+2901  2026-04-30          4         NSI  ...        315      12.58  17.859999
+2902  2026-04-30          5         WSI  ...        929       8.70  14.520000
+2903  2026-04-30          6         ESI  ...        490       9.19  16.029999
+
+[5 rows x 8 columns]
+Loading regional SST history: data\processed\region_daily_sst_history.parquet
+Loaded 2,904 history rows
+Loading climatology: data\processed\region_climatology.parquet
+Loaded 2,190 climatology rows
+Rows after history preparation: 2,904
+Rows in analysis period: 2,904
+Rows after climatology join: 2,904
+Created 2,904 anomaly rows
+Preview:
+        date  region_id region_code  ... warming_rate_7d_c  above_p90  status_label
+0 2025-01-01          1         NNI  ...               NaN      False        Normal
+1 2025-01-02          1         NNI  ...               NaN      False        Normal
+2 2025-01-03          1         NNI  ...               NaN      False        Normal
+3 2025-01-04          1         NNI  ...               NaN      False        Normal
+4 2025-01-05          1         NNI  ...               NaN      False        Normal
+
+[5 rows x 18 columns]
+Saved anomaly output to: data\processed\region_daily_anomalies.parquet
+Loading anomaly table: data\processed\region_daily_anomalies.parquet
+Loaded 2,904 anomaly rows
+Created 31 event rows
+Preview:
+                               event_id  ...  min_duration_days
+0  7780ed7b-bac8-4218-aae6-62269c0f89a9  ...                  5
+1  69621a0a-b8d9-41ae-94b0-2b26b64469f0  ...                  5
+2  ffb3c3c6-b25f-4cb7-ab54-6e4dc0126749  ...                  5
+3  67a41415-5dee-4b20-b6ea-021331117c89  ...                  5
+4  56671cd6-e1e5-4a67-ad69-1ed38f6c6dcb  ...                  5
+
+[5 rows x 17 columns]
+Saved events output to: data\processed\heat_events.parquet
+Loading core.regions...
+Loaded 6 rows into core.regions
+Loading analytics.region_daily_sst...
+Loaded 2,904 rows into analytics.region_daily_sst
+Loading analytics.region_climatology...
+Loaded 2,190 rows into analytics.region_climatology
+Loading analytics.region_daily_anomalies...
+Loaded 2,904 rows into analytics.region_daily_anomalies
+Loading analytics.heat_events...
+Loaded 31 rows into analytics.heat_events
+All processed outputs loaded successfully.
+Daily update finished at Mon 18/05/2026  8:55:38.40 
