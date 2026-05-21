@@ -6,7 +6,6 @@ import argparse
 
 import pandas as pd
 
-
 DEFAULT_HISTORY_FILE = Path("data/processed/region_daily_sst_history.parquet")
 DEFAULT_CLIMATOLOGY_FILE = Path("data/processed/region_climatology.parquet")
 DEFAULT_OUTPUT_FILE = Path("data/processed/region_daily_anomalies.parquet")
@@ -36,19 +35,25 @@ def load_climatology(climatology_path: Path) -> pd.DataFrame:
 
 def prepare_history(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Prepare the observed regional SST history for anomaly calculations.
+    Prepare regional SST data for climatology/anomaly calculations.
 
-    Steps:
-    - ensure the date column is datetime
-    - derive day_of_year
-    - drop leap day for consistency with climatology.py
+    We use a no-leap climatology day:
+    - Feb 29 is dropped
+    - dates after Feb 29 in leap years are shifted back by 1
+    This keeps day_of_year in the range 1-365.
     """
     prepared = df.copy()
     prepared["date"] = pd.to_datetime(prepared["date"])
-    prepared["day_of_year"] = prepared["date"].dt.dayofyear
 
+    # Drop Feb 29
     leap_day_mask = (prepared["date"].dt.month == 2) & (prepared["date"].dt.day == 29)
     prepared = prepared.loc[~leap_day_mask].copy()
+
+    raw_doy = prepared["date"].dt.dayofyear
+    leap_year_after_feb = prepared["date"].dt.is_leap_year & (raw_doy > 60)
+
+    prepared["day_of_year"] = raw_doy.where(~leap_year_after_feb, raw_doy - 1)
+    prepared["day_of_year"] = prepared["day_of_year"].astype(int)
 
     return prepared
 

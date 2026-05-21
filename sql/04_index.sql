@@ -18,3 +18,18 @@ ON analytics.heat_events (region_id);
 
 CREATE INDEX IF NOT EXISTS idx_heat_events_start_date
 ON analytics.heat_events (start_date);
+
+CREATE INDEX IF NOT EXISTS idx_region_daily_sst_prelim_date
+ON analytics.region_daily_sst_prelim(date);
+
+CREATE INDEX IF NOT EXISTS idx_region_daily_anomalies_prelim_date
+ON analytics.region_daily_anomalies_prelim(date);
+
+CREATE INDEX IF NOT EXISTS idx_region_daily_anomalies_prelim_region_date
+ON analytics.region_daily_anomalies_prelim(region_id, date);
+
+CREATE INDEX IF NOT EXISTS idx_heat_events_prelim_active
+ON analytics.heat_events_prelim(is_active);
+
+CREATE INDEX IF NOT EXISTS idx_heat_events_prelim_dates
+ON analytics.heat_events_prelim(start_date, end_date);

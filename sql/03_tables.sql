@@ -69,3 +69,64 @@ CREATE TABLE IF NOT EXISTS analytics.heat_events (
     threshold_c NUMERIC(6,2),
     min_duration_days INTEGER
 );
+
+
+CREATE TABLE IF NOT EXISTS analytics.region_daily_sst_prelim (
+    date DATE NOT NULL,
+    region_id INTEGER NOT NULL REFERENCES core.regions(region_id),
+    region_code TEXT NOT NULL,
+    region_name TEXT NOT NULL,
+    mean_sst_c NUMERIC(6,2),
+    cell_count INTEGER,
+    min_sst_c NUMERIC(6,2),
+    max_sst_c NUMERIC(6,2),
+    data_product TEXT DEFAULT 'preliminary',
+    is_provisional BOOLEAN DEFAULT TRUE,
+    PRIMARY KEY (date, region_id)
+);
+
+CREATE TABLE IF NOT EXISTS analytics.region_daily_anomalies_prelim (
+    date DATE NOT NULL,
+    region_id INTEGER NOT NULL REFERENCES core.regions(region_id),
+    region_code TEXT NOT NULL,
+    region_name TEXT NOT NULL,
+    day_of_year INTEGER NOT NULL,
+    mean_sst_c NUMERIC(6,2),
+    cell_count INTEGER,
+    min_sst_c NUMERIC(6,2),
+    max_sst_c NUMERIC(6,2),
+    clim_mean_sst_c NUMERIC(6,2),
+    clim_p90_sst_c NUMERIC(6,2),
+    sample_size INTEGER,
+    anomaly_c NUMERIC(6,2),
+    rolling_7d_anomaly_c NUMERIC(6,2),
+    rolling_30d_anomaly_c NUMERIC(6,2),
+    warming_rate_7d_c NUMERIC(6,2),
+    above_p90 BOOLEAN,
+    status_label TEXT,
+    data_product TEXT DEFAULT 'preliminary',
+    is_provisional BOOLEAN DEFAULT TRUE,
+    PRIMARY KEY (date, region_id)
+);
+
+CREATE TABLE IF NOT EXISTS analytics.heat_events_prelim (
+    event_id UUID PRIMARY KEY,
+    region_id INTEGER NOT NULL REFERENCES core.regions(region_id),
+    region_code TEXT NOT NULL,
+    region_name TEXT NOT NULL,
+    event_type TEXT,
+    severity_class TEXT,
+    start_date DATE,
+    end_date DATE,
+    duration_days INTEGER,
+    max_anomaly_c NUMERIC(6,2),
+    mean_anomaly_c NUMERIC(6,2),
+    max_exceedance_p90_c DOUBLE PRECISION,
+    mean_exceedance_p90_c DOUBLE PRECISION,
+    peak_date DATE,
+    is_active BOOLEAN,
+    threshold_c NUMERIC(6,2),
+    min_duration_days INTEGER,
+    data_product TEXT DEFAULT 'preliminary',
+    is_provisional BOOLEAN DEFAULT TRUE
+);
