@@ -489,3 +489,98 @@ Traceback (most recent call last):
 RuntimeError: Command failed: C:\Users\puggi\anaconda3\envs\nzheat\python.exe -m nzheat.pipeline.backfill --start-date 2026-05-05 --end-date 2026-05-06 --append
 Daily update failed at Sun 24/05/2026  9:15:34.07 
 =============================== 
+=============================== 
+Daily update started at Mon 25/05/2026  9:10:40.03 
+Processing 3 day(s) from 2026-05-05 to 2026-05-07
+Using regions file: assets\regions\nz_coastal_regions.geojson
+
+--- 2026-05-05 ---
+Failed for 2026-05-05: HTTP error while downloading OISST for 2026-05-05: 404 Client Error: Not Found for url: https://www.ncei.noaa.gov/data/sea-surface-temperature-optimum-interpolation/v2.1/access/avhrr/202605/oisst-avhrr-v02r01.20260505.nc
+
+--- 2026-05-06 ---
+Failed for 2026-05-06: HTTP error while downloading OISST for 2026-05-06: 404 Client Error: Not Found for url: https://www.ncei.noaa.gov/data/sea-surface-temperature-optimum-interpolation/v2.1/access/avhrr/202605/oisst-avhrr-v02r01.20260506.nc
+
+--- 2026-05-07 ---
+Created 6 region-day rows
+
+Append mode enabled. Reading existing history: data\processed\region_daily_sst_history.parquet
+
+Backfill complete.
+Saved 2,940 total rows to: data\processed\region_daily_sst_history.parquet
+Date range: 2025-01-01 to 2026-05-07
+Preview:
+            date  region_id region_code  ... cell_count  min_sst_c  max_sst_c
+2935  2026-05-07          2         WNI  ...         65      14.00  17.859999
+2936  2026-05-07          3         ENI  ...        184      14.73  18.250000
+2937  2026-05-07          4         NSI  ...        315      12.66  17.869999
+2938  2026-05-07          5         WSI  ...        929       8.71  14.540000
+2939  2026-05-07          6         ESI  ...        490       9.00  16.000000
+
+[5 rows x 8 columns]
+Loading regional SST history: data\processed\region_daily_sst_history.parquet
+Loaded 2,940 history rows
+Loading climatology: data\processed\region_climatology.parquet
+Loaded 2,190 climatology rows
+Rows after history preparation: 2,940
+Rows in analysis period: 2,940
+Rows after climatology join: 2,940
+Created 2,940 anomaly rows
+Preview:
+        date  region_id region_code  ... warming_rate_7d_c  above_p90  status_label
+0 2025-01-01          1         NNI  ...               NaN      False        Normal
+1 2025-01-02          1         NNI  ...               NaN      False        Normal
+2 2025-01-03          1         NNI  ...               NaN      False        Normal
+3 2025-01-04          1         NNI  ...               NaN      False        Normal
+4 2025-01-05          1         NNI  ...               NaN      False        Normal
+
+[5 rows x 18 columns]
+Saved anomaly output to: data\processed\region_daily_anomalies.parquet
+Loading anomaly table: data\processed\region_daily_anomalies.parquet
+Loaded 2,940 anomaly rows
+Created 44 event rows
+Preview:
+                               event_id  ...  min_duration_days
+0  c09e8742-15d1-41df-b24c-50daa1c9fd04  ...                  5
+1  2a424c72-ca72-482e-837e-438399dc368a  ...                  5
+2  3f020334-605b-46f8-b3c9-04e96d7a46c0  ...                  5
+3  73c26816-287c-4081-88ac-d9a52787561f  ...                  5
+4  551e69a4-95e2-42ae-aede-aea107380ea9  ...                  5
+
+[5 rows x 17 columns]
+Saved events output to: data\processed\heat_events.parquet
+Loading core.regions...
+Loaded 6 rows into core.regions
+Loading analytics.region_daily_sst...
+Loaded 2,940 rows into analytics.region_daily_sst
+Loading analytics.region_climatology...
+Loaded 2,190 rows into analytics.region_climatology
+Loading analytics.region_daily_anomalies...
+Loaded 2,940 rows into analytics.region_daily_anomalies
+Loading analytics.heat_events...
+Loaded 44 rows into analytics.heat_events
+All processed outputs loaded successfully.
+===============================
+Daily append started
+Latest existing date: 2026-05-04
+Target end date:      2026-05-07
+Processing from 2026-05-05 to 2026-05-07
+
+Running:
+C:\Users\puggi\anaconda3\envs\nzheat\python.exe -m nzheat.pipeline.backfill --start-date 2026-05-05 --end-date 2026-05-07 --append
+PYTHONPATH=C:\Users\puggi\Documents\Gianby\data eng\nz-ocean-heat-anomaly-monitor\src
+
+Running:
+C:\Users\puggi\anaconda3\envs\nzheat\python.exe -m nzheat.analytics.anomalies
+PYTHONPATH=C:\Users\puggi\Documents\Gianby\data eng\nz-ocean-heat-anomaly-monitor\src
+
+Running:
+C:\Users\puggi\anaconda3\envs\nzheat\python.exe -m nzheat.analytics.events
+PYTHONPATH=C:\Users\puggi\Documents\Gianby\data eng\nz-ocean-heat-anomaly-monitor\src
+
+Running:
+C:\Users\puggi\anaconda3\envs\nzheat\python.exe -m nzheat.load.load_postgres
+PYTHONPATH=C:\Users\puggi\Documents\Gianby\data eng\nz-ocean-heat-anomaly-monitor\src
+Daily append completed successfully.
+===============================
+Daily update finished at Mon 25/05/2026  9:11:02.26 
+=============================== 
