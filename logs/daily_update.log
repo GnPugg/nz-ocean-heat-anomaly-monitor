@@ -584,3 +584,92 @@ Daily append completed successfully.
 ===============================
 Daily update finished at Mon 25/05/2026  9:11:02.26 
 =============================== 
+=============================== 
+Daily update started at Tue 26/05/2026  9:11:18.11 
+Processing 1 day(s) from 2026-05-08 to 2026-05-08
+Using regions file: assets\regions\nz_coastal_regions.geojson
+
+--- 2026-05-08 ---
+Created 6 region-day rows
+
+Append mode enabled. Reading existing history: data\processed\region_daily_sst_history.parquet
+
+Backfill complete.
+Saved 2,946 total rows to: data\processed\region_daily_sst_history.parquet
+Date range: 2025-01-01 to 2026-05-08
+Preview:
+            date  region_id region_code  ... cell_count  min_sst_c  max_sst_c
+2941  2026-05-08          2         WNI  ...         65  14.040000  17.770000
+2942  2026-05-08          3         ENI  ...        184  14.469999  18.190001
+2943  2026-05-08          4         NSI  ...        315  12.460000  17.799999
+2944  2026-05-08          5         WSI  ...        929   8.740000  14.540000
+2945  2026-05-08          6         ESI  ...        490   9.040000  16.029999
+
+[5 rows x 8 columns]
+Loading regional SST history: data\processed\region_daily_sst_history.parquet
+Loaded 2,946 history rows
+Loading climatology: data\processed\region_climatology.parquet
+Loaded 2,190 climatology rows
+Rows after history preparation: 2,946
+Rows in analysis period: 2,946
+Rows after climatology join: 2,946
+Created 2,946 anomaly rows
+Preview:
+        date  region_id region_code  ... warming_rate_7d_c  above_p90  status_label
+0 2025-01-01          1         NNI  ...               NaN      False        Normal
+1 2025-01-02          1         NNI  ...               NaN      False        Normal
+2 2025-01-03          1         NNI  ...               NaN      False        Normal
+3 2025-01-04          1         NNI  ...               NaN      False        Normal
+4 2025-01-05          1         NNI  ...               NaN      False        Normal
+
+[5 rows x 18 columns]
+Saved anomaly output to: data\processed\region_daily_anomalies.parquet
+Loading anomaly table: data\processed\region_daily_anomalies.parquet
+Loaded 2,946 anomaly rows
+Created 44 event rows
+Preview:
+                               event_id  ...  min_duration_days
+0  9b3faf02-1e40-42ca-b086-921659d49429  ...                  5
+1  ee06a234-7e1b-49fe-b304-c4a7862f817c  ...                  5
+2  6f44a716-0fe4-4e08-91c0-0452a96ad33b  ...                  5
+3  b1c7f49c-bfae-450a-9371-020908a4c6f8  ...                  5
+4  cb64f23e-f4c7-4d11-907a-4318a69c5b21  ...                  5
+
+[5 rows x 17 columns]
+Saved events output to: data\processed\heat_events.parquet
+Loading core.regions...
+Loaded 6 rows into core.regions
+Loading analytics.region_daily_sst...
+Loaded 2,946 rows into analytics.region_daily_sst
+Loading analytics.region_climatology...
+Loaded 2,190 rows into analytics.region_climatology
+Loading analytics.region_daily_anomalies...
+Loaded 2,946 rows into analytics.region_daily_anomalies
+Loading analytics.heat_events...
+Loaded 44 rows into analytics.heat_events
+All processed outputs loaded successfully.
+===============================
+Daily append started
+Latest existing date: 2026-05-07
+Target end date:      2026-05-08
+Processing from 2026-05-08 to 2026-05-08
+
+Running:
+C:\Users\puggi\anaconda3\envs\nzheat\python.exe -m nzheat.pipeline.backfill --start-date 2026-05-08 --end-date 2026-05-08 --append
+PYTHONPATH=C:\Users\puggi\Documents\Gianby\data eng\nz-ocean-heat-anomaly-monitor\src
+
+Running:
+C:\Users\puggi\anaconda3\envs\nzheat\python.exe -m nzheat.analytics.anomalies
+PYTHONPATH=C:\Users\puggi\Documents\Gianby\data eng\nz-ocean-heat-anomaly-monitor\src
+
+Running:
+C:\Users\puggi\anaconda3\envs\nzheat\python.exe -m nzheat.analytics.events
+PYTHONPATH=C:\Users\puggi\Documents\Gianby\data eng\nz-ocean-heat-anomaly-monitor\src
+
+Running:
+C:\Users\puggi\anaconda3\envs\nzheat\python.exe -m nzheat.load.load_postgres
+PYTHONPATH=C:\Users\puggi\Documents\Gianby\data eng\nz-ocean-heat-anomaly-monitor\src
+Daily append completed successfully.
+===============================
+Daily update finished at Tue 26/05/2026  9:11:50.97 
+=============================== 
