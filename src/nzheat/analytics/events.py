@@ -6,7 +6,6 @@ import uuid
 
 import pandas as pd
 
-
 DEFAULT_INPUT_FILE = Path("data/processed/region_daily_anomalies.parquet")
 DEFAULT_OUTPUT_FILE = Path("data/processed/heat_events.parquet")
 
@@ -168,7 +167,19 @@ def summarize_events(
     # is above_p90 rather than anomaly_c.
     summary["threshold_c"] = anomaly_threshold
     summary["min_duration_days"] = min_duration_days
-    summary["event_id"] = [str(uuid.uuid4()) for _ in range(len(summary))]
+    summary["event_id"] = summary.apply(
+        lambda row: str(
+            uuid.uuid5(
+                uuid.NAMESPACE_URL,
+                (
+                    f"{row['event_type']}|"
+                    f"region_id={row['region_id']}|"
+                    f"start_date={pd.to_datetime(row['start_date']).date().isoformat()}"
+                ),
+            )
+        ),
+        axis=1,
+    )
 
     round_cols = [
         "max_anomaly_c",

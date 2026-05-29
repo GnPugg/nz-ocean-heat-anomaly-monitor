@@ -1,14 +1,8 @@
 from __future__ import annotations
 
 from pathlib import Path
-import sys
 
 import pandas as pd
-
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-SRC_DIR = PROJECT_ROOT / "src"
-
-sys.path.insert(0, str(SRC_DIR))
 
 from nzheat.load.load_postgres import (
     create_db_engine,
@@ -17,6 +11,8 @@ from nzheat.load.load_postgres import (
     normalize_dataframe_types,
     truncate_table,
 )
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 PRELIM_SST_FILE = (
     PROJECT_ROOT / "data" / "processed" / "region_daily_sst_recent_prelim.parquet"
@@ -56,6 +52,7 @@ def main() -> None:
 
     for path, table_name in tables:
         print(f"Loading analytics.{table_name} from {path}")
+
         df = load_parquet(path)
         df = normalize_dataframe_types(table_name, df)
 

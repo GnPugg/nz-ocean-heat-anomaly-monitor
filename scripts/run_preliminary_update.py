@@ -4,18 +4,14 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
 import argparse
-import os
-import subprocess
 import sys
 
 import pandas as pd
 import requests
 
+from nzheat.utils.commands import run_command
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-SRC_DIR = PROJECT_ROOT / "src"
-
-sys.path.insert(0, str(SRC_DIR))
-
 from nzheat.transform.region_join import (
     keep_useful_columns,
     load_oisst_as_dataframe,
@@ -237,29 +233,6 @@ def build_prelim_event_input(
     )
 
     return prelim_start, prelim_end
-
-
-def run_command(command: list[str]) -> None:
-    env = os.environ.copy()
-    existing_pythonpath = env.get("PYTHONPATH", "")
-
-    if existing_pythonpath:
-        env["PYTHONPATH"] = str(SRC_DIR) + os.pathsep + existing_pythonpath
-    else:
-        env["PYTHONPATH"] = str(SRC_DIR)
-
-    print("\nRunning:")
-    print(" ".join(command))
-
-    result = subprocess.run(
-        command,
-        cwd=PROJECT_ROOT,
-        text=True,
-        env=env,
-    )
-
-    if result.returncode != 0:
-        raise RuntimeError(f"Command failed: {' '.join(command)}")
 
 
 def add_prelim_metadata_to_parquet(path: Path) -> None:

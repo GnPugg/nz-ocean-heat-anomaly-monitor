@@ -1,44 +1,20 @@
 from pathlib import Path
 from datetime import date, timedelta
-import subprocess
 import sys
+
 import pandas as pd
-import os
+
+from nzheat.utils.commands import run_command
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-SRC_DIR = PROJECT_ROOT / "src"
 HISTORY_PATH = PROJECT_ROOT / "data" / "processed" / "region_daily_sst_history.parquet"
 
 SAFE_LAG_DAYS = 18
 
 
-def run_command(command: list[str]) -> None:
-    env = os.environ.copy()
-    existing_pythonpath = env.get("PYTHONPATH", "")
-
-    if existing_pythonpath:
-        env["PYTHONPATH"] = str(SRC_DIR) + os.pathsep + existing_pythonpath
-    else:
-        env["PYTHONPATH"] = str(SRC_DIR)
-
-    print("\nRunning:")
-    print(" ".join(command))
-    print(f"PYTHONPATH={env['PYTHONPATH']}")
-
-    result = subprocess.run(
-        command,
-        cwd=PROJECT_ROOT,
-        text=True,
-        env=env,
-    )
-
-    if result.returncode != 0:
-        raise RuntimeError(f"Command failed: {' '.join(command)}")
-
-
 def main() -> None:
     print("===============================")
-    print(f"Daily append started")
+    print("Daily append started")
 
     target_end = date.today() - timedelta(days=SAFE_LAG_DAYS)
 

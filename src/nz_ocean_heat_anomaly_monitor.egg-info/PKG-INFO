@@ -1,0 +1,16 @@
+Metadata-Version: 2.4
+Name: nz-ocean-heat-anomaly-monitor
+Version: 0.1.0
+Summary: NZ coastal ocean heat anomaly monitoring pipeline
+Requires-Python: >=3.10
+Requires-Dist: pandas
+Requires-Dist: geopandas
+Requires-Dist: xarray
+Requires-Dist: requests
+Requires-Dist: sqlalchemy
+Requires-Dist: psycopg2-binary
+Requires-Dist: python-dotenv
+Requires-Dist: pyarrow
+Requires-Dist: netcdf4
+Requires-Dist: h5netcdf
+Requires-Dist: shapely

@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-import os
-import subprocess
 import sys
 from pathlib import Path
 
 import pandas as pd
 
+from nzheat.utils.commands import run_command
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-SRC_DIR = PROJECT_ROOT / "src"
 
 RAW_DIR = PROJECT_ROOT / "data" / "raw" / "oisst_gap_2021_2024"
 PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
@@ -16,29 +15,6 @@ PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
 FINAL_OUTPUT = PROCESSED_DIR / "region_daily_sst_gap_2021_2024.parquet"
 
 YEARS = [2021, 2022, 2023, 2024]
-
-
-def run_command(command: list[str]) -> None:
-    env = os.environ.copy()
-    existing_pythonpath = env.get("PYTHONPATH", "")
-
-    if existing_pythonpath:
-        env["PYTHONPATH"] = str(SRC_DIR) + os.pathsep + existing_pythonpath
-    else:
-        env["PYTHONPATH"] = str(SRC_DIR)
-
-    print("\nRunning:")
-    print(" ".join(command))
-
-    result = subprocess.run(
-        command,
-        cwd=PROJECT_ROOT,
-        env=env,
-        text=True,
-    )
-
-    if result.returncode != 0:
-        raise RuntimeError(f"Command failed: {' '.join(command)}")
 
 
 def build_year(year: int) -> Path:
@@ -102,7 +78,8 @@ def combine_year_files(year_files: list[Path]) -> None:
     print("\nRows by region:")
     print(combined.groupby("region_name").size())
 
-    expected_rows = 1461 * 6  # 2021-2024 includes leap year 2024
+    expected_rows = 1461 * 6  # 2021–2024 includes leap year 2024
+
     if len(combined) != expected_rows:
         print(
             f"\nWARNING: expected about {expected_rows:,} rows, "
@@ -114,7 +91,7 @@ def combine_year_files(year_files: list[Path]) -> None:
 
 def main() -> None:
     print("======================================")
-    print("Building 2021-2024 regional SST gap")
+    print("Building 2021–2024 regional SST gap")
     print("======================================")
 
     year_files = []

@@ -3,13 +3,12 @@ from __future__ import annotations
 from pathlib import Path
 import argparse
 import os
-
+from urllib.parse import quote_plus
 from dotenv import load_dotenv
 
 import pandas as pd
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
-
 
 DEFAULT_REGIONS_FILE = Path("assets/regions/nz_coastal_regions.geojson")
 DEFAULT_REGION_DAILY_SST_FILE = Path("data/processed/region_daily_sst_history.parquet")
@@ -22,7 +21,21 @@ load_dotenv()
 
 
 def get_database_url(cli_database_url: str | None = None) -> str:
-    """Resolve the database URL from CLI input or environment variables."""
+    """
+    Resolve the database URL from CLI input or environment variables.
+
+    Supports either:
+
+    DATABASE_URL=postgresql+psycopg2://user:password@localhost:5432/dbname
+
+    or separate variables:
+
+    DB_HOST / POSTGRES_HOST
+    DB_PORT / POSTGRES_PORT
+    DB_NAME / POSTGRES_DB
+    DB_USER / POSTGRES_USER
+    DB_PASSWORD / POSTGRES_PASSWORD
+    """
     if cli_database_url:
         return cli_database_url
 
@@ -30,9 +43,30 @@ def get_database_url(cli_database_url: str | None = None) -> str:
     if env_database_url:
         return env_database_url
 
-    raise ValueError(
-        "No database URL provided. Use --database-url or set DATABASE_URL in your environment."
-    )
+    host = os.getenv("DB_HOST") or os.getenv("POSTGRES_HOST") or "localhost"
+    port = os.getenv("DB_PORT") or os.getenv("POSTGRES_PORT") or "5432"
+    db_name = os.getenv("DB_NAME") or os.getenv("POSTGRES_DB")
+    user = os.getenv("DB_USER") or os.getenv("POSTGRES_USER")
+    password = os.getenv("DB_PASSWORD") or os.getenv("POSTGRES_PASSWORD")
+
+    missing = []
+    if not db_name:
+        missing.append("DB_NAME or POSTGRES_DB")
+    if not user:
+        missing.append("DB_USER or POSTGRES_USER")
+    if not password:
+        missing.append("DB_PASSWORD or POSTGRES_PASSWORD")
+
+    if missing:
+        raise ValueError(
+            "Missing database settings in .env: "
+            + ", ".join(missing)
+            + ". Alternatively set DATABASE_URL."
+        )
+
+    password_safe = quote_plus(password)
+
+    return f"postgresql+psycopg2://{user}:{password_safe}@{host}:{port}/{db_name}"
 
 
 def create_db_engine(database_url: str) -> Engine:
@@ -79,6 +113,8 @@ def normalize_dataframe_types(table_name: str, df: pd.DataFrame) -> pd.DataFrame
 
     if "date" in result.columns:
         result["date"] = pd.to_datetime(result["date"]).dt.date
+    if "month_date" in result.columns:
+        result["month_date"] = pd.to_datetime(result["month_date"]).dt.date
     if "start_date" in result.columns:
         result["start_date"] = pd.to_datetime(result["start_date"]).dt.date
     if "end_date" in result.columns:
