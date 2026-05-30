@@ -928,3 +928,36 @@ Daily append completed successfully.
 ===============================
 Daily update finished at Fri 29/05/2026  9:12:09.55 
 =============================== 
+=============================== 
+Daily update started at Fri 29/05/2026 18:10:29.70 
+Running run_daily_append.py 
+===============================
+Daily append started
+Latest existing date: 2026-05-11
+Target end date:      2026-05-11
+No new final OISST dates to process.
+===============================
+Running load_preliminary_postgres.py 
+Loading analytics.region_daily_sst_prelim from C:\Users\puggi\Documents\Gianby\data eng\nz-ocean-heat-anomaly-monitor\data\processed\region_daily_sst_recent_prelim.parquet
+Loaded 102 rows into analytics.region_daily_sst_prelim
+Loading analytics.region_daily_anomalies_prelim from C:\Users\puggi\Documents\Gianby\data eng\nz-ocean-heat-anomaly-monitor\data\processed\region_daily_anomalies_recent_prelim.parquet
+Loaded 102 rows into analytics.region_daily_anomalies_prelim
+Loading analytics.heat_events_prelim from C:\Users\puggi\Documents\Gianby\data eng\nz-ocean-heat-anomaly-monitor\data\processed\heat_events_recent_prelim.parquet
+Loaded 46 rows into analytics.heat_events_prelim
+Preliminary outputs loaded successfully.
+Daily update finished at Fri 29/05/2026 18:10:37.77 
+=============================== 
+=============================== 
+Daily update started at Sat 30/05/2026 10:16:32.98 
+Running run_daily_append.py 
+===============================
+Daily append started
+Latest existing date: 2026-05-11
+Target end date:      2026-05-12
+Processing from 2026-05-12 to 2026-05-12
+
+Running:
+C:\Users\puggi\anaconda3\envs\nzheat\python.exe -m nzheat.pipeline.backfill --start-date 2026-05-12 --end-date 2026-05-12 --append
+Traceback (most recent call last):
+  File "C:\Users\puggi\Documents\Gianby\data eng\nz-ocean-heat-anomaly-monitor\scripts\run_daily_append.py", line 82, in <module>
+^C
