@@ -960,4 +960,100 @@ Running:
 C:\Users\puggi\anaconda3\envs\nzheat\python.exe -m nzheat.pipeline.backfill --start-date 2026-05-12 --end-date 2026-05-12 --append
 Traceback (most recent call last):
   File "C:\Users\puggi\Documents\Gianby\data eng\nz-ocean-heat-anomaly-monitor\scripts\run_daily_append.py", line 82, in <module>
-^C
+^C=============================== 
+Daily update started at Sun 31/05/2026 10:52:39.01 
+Running run_daily_append.py 
+Processing 2 day(s) from 2026-05-12 to 2026-05-13
+Using regions file: assets\regions\nz_coastal_regions.geojson
+
+--- 2026-05-12 ---
+Created 6 region-day rows
+
+--- 2026-05-13 ---
+Created 6 region-day rows
+
+Append mode enabled. Reading existing history: data\processed\region_daily_sst_history.parquet
+
+Backfill complete.
+Saved 2,976 total rows to: data\processed\region_daily_sst_history.parquet
+Date range: 2025-01-01 to 2026-05-13
+Preview:
+            date  region_id region_code  ... cell_count  min_sst_c  max_sst_c
+2971  2026-05-13          2         WNI  ...         65      13.83  17.459999
+2972  2026-05-13          3         ENI  ...        184      14.00  17.900000
+2973  2026-05-13          4         NSI  ...        315      12.07  17.539999
+2974  2026-05-13          5         WSI  ...        929       8.41  14.210000
+2975  2026-05-13          6         ESI  ...        490       8.66  15.830000
+
+[5 rows x 8 columns]
+Loading regional SST history: data\processed\region_daily_sst_history.parquet
+Loaded 2,976 history rows
+Loading climatology: data\processed\region_climatology.parquet
+Loaded 2,190 climatology rows
+Rows after history preparation: 2,976
+Rows in analysis period: 2,976
+Rows after climatology join: 2,976
+Created 2,976 anomaly rows
+Preview:
+        date  region_id region_code  ... warming_rate_7d_c  above_p90  status_label
+0 2025-01-01          1         NNI  ...               NaN      False        Normal
+1 2025-01-02          1         NNI  ...               NaN      False        Normal
+2 2025-01-03          1         NNI  ...               NaN      False        Normal
+3 2025-01-04          1         NNI  ...               NaN      False        Normal
+4 2025-01-05          1         NNI  ...               NaN      False        Normal
+
+[5 rows x 18 columns]
+Saved anomaly output to: data\processed\region_daily_anomalies.parquet
+Loading anomaly table: data\processed\region_daily_anomalies.parquet
+Loaded 2,976 anomaly rows
+Created 46 event rows
+Preview:
+                               event_id  ...  min_duration_days
+0  52a824fe-0c23-5dd9-95e3-f44e815fa37e  ...                  5
+1  3525100b-67cf-5da0-9adb-74feab06c0a3  ...                  5
+2  eb27c94c-c6ee-5674-96b6-1a508c30a958  ...                  5
+3  172f7c5e-2313-53a4-ad63-f197043af825  ...                  5
+4  fb90b568-b895-597f-8c4e-223853d07cd6  ...                  5
+
+[5 rows x 17 columns]
+Saved events output to: data\processed\heat_events.parquet
+Loading core.regions...
+Loaded 6 rows into core.regions
+Loading analytics.region_daily_sst...
+Loaded 2,976 rows into analytics.region_daily_sst
+Loading analytics.region_climatology...
+Loaded 2,190 rows into analytics.region_climatology
+Loading analytics.region_daily_anomalies...
+Loaded 2,976 rows into analytics.region_daily_anomalies
+Loading analytics.heat_events...
+Loaded 46 rows into analytics.heat_events
+All processed outputs loaded successfully.
+===============================
+Daily append started
+Latest existing date: 2026-05-11
+Target end date:      2026-05-13
+Processing from 2026-05-12 to 2026-05-13
+
+Running:
+C:\Users\puggi\anaconda3\envs\nzheat\python.exe -m nzheat.pipeline.backfill --start-date 2026-05-12 --end-date 2026-05-13 --append
+
+Running:
+C:\Users\puggi\anaconda3\envs\nzheat\python.exe -m nzheat.analytics.anomalies
+
+Running:
+C:\Users\puggi\anaconda3\envs\nzheat\python.exe -m nzheat.analytics.events
+
+Running:
+C:\Users\puggi\anaconda3\envs\nzheat\python.exe -m nzheat.load.load_postgres
+Daily append completed successfully.
+===============================
+Running load_preliminary_postgres.py 
+Loading analytics.region_daily_sst_prelim from C:\Users\puggi\Documents\Gianby\data eng\nz-ocean-heat-anomaly-monitor\data\processed\region_daily_sst_recent_prelim.parquet
+Loaded 102 rows into analytics.region_daily_sst_prelim
+Loading analytics.region_daily_anomalies_prelim from C:\Users\puggi\Documents\Gianby\data eng\nz-ocean-heat-anomaly-monitor\data\processed\region_daily_anomalies_recent_prelim.parquet
+Loaded 102 rows into analytics.region_daily_anomalies_prelim
+Loading analytics.heat_events_prelim from C:\Users\puggi\Documents\Gianby\data eng\nz-ocean-heat-anomaly-monitor\data\processed\heat_events_recent_prelim.parquet
+Loaded 46 rows into analytics.heat_events_prelim
+Preliminary outputs loaded successfully.
+Daily update finished at Sun 31/05/2026 10:53:54.88 
+=============================== 
