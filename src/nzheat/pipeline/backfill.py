@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 import argparse
 
@@ -26,6 +26,19 @@ DEFAULT_RAW_DIR = Path("data/raw/oisst")
 DEFAULT_REGIONS_FILE = Path("assets/regions/nz_coastal_regions.geojson")
 DEFAULT_OUTPUT_FILE = Path("data/processed/region_daily_sst_history.parquet")
 
+REGION_DAILY_SST_COLUMNS = [
+    "date",
+    "region_id",
+    "region_code",
+    "region_name",
+    "mean_sst_c",
+    "cell_count",
+    "min_sst_c",
+    "max_sst_c",
+]
+
+KEY_COLUMNS = ["date", "region_id"]
+
 
 def build_date_list(start_date: date, end_date: date) -> list[date]:
     """Return a list of dates from start_date to end_date, inclusive."""
@@ -34,10 +47,64 @@ def build_date_list(start_date: date, end_date: date) -> list[date]:
 
     dates: list[date] = []
     current = start_date
+
     while current <= end_date:
         dates.append(current)
         current += timedelta(days=1)
+
     return dates
+
+
+def keep_region_daily_sst_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Keep only the expected columns for the regional daily SST history file."""
+    missing_cols = [col for col in REGION_DAILY_SST_COLUMNS if col not in df.columns]
+
+    if missing_cols:
+        raise ValueError(f"Missing required SST history columns: {missing_cols}")
+
+    cleaned_df = df[REGION_DAILY_SST_COLUMNS].copy()
+    cleaned_df["date"] = pd.to_datetime(cleaned_df["date"]).dt.date
+
+    return cleaned_df
+
+
+def backup_existing_output(output_path: Path) -> Path | None:
+    """Create a timestamped backup before writing a changed history file."""
+    if not output_path.exists():
+        return None
+
+    backup_dir = output_path.parent / "backups"
+    backup_dir.mkdir(parents=True, exist_ok=True)
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_path = (
+        backup_dir / f"{output_path.stem}_backup_{timestamp}{output_path.suffix}"
+    )
+
+    existing_df = pd.read_parquet(output_path)
+    existing_df.to_parquet(backup_path, index=False)
+
+    return backup_path
+
+
+def find_missing_rows_only(
+    new_df: pd.DataFrame,
+    existing_df: pd.DataFrame,
+) -> tuple[pd.DataFrame, int]:
+    """
+    Return only rows from new_df whose date-region key is not already present.
+
+    Existing rows are never replaced.
+    """
+    existing_keys = pd.MultiIndex.from_frame(existing_df[KEY_COLUMNS])
+    new_keys = pd.MultiIndex.from_frame(new_df[KEY_COLUMNS])
+
+    missing_mask = ~new_keys.isin(existing_keys)
+    skipped_existing_rows = int((~missing_mask).sum())
+
+    missing_df = new_df.loc[missing_mask].copy()
+
+    return missing_df, skipped_existing_rows
 
 
 def process_single_date(
@@ -82,9 +149,17 @@ def run_backfill(
     output_path: Path,
     *,
     overwrite_download: bool = False,
-    append: bool = False,
+    dry_run: bool = False,
 ) -> pd.DataFrame:
-    """Run a multi-day backfill and save or append regional SST history."""
+    """
+    Run a multi-day backfill.
+
+    Safe behaviour:
+    - If the output history file exists, only missing date-region rows are added.
+    - Existing date-region rows are never replaced.
+    - The full output file is never overwritten with only the requested range.
+    - A backup is created before writing.
+    """
     dates = build_date_list(start_date, end_date)
     regions_gdf = load_regions(regions_path)
 
@@ -93,9 +168,11 @@ def run_backfill(
 
     print(f"Processing {len(dates)} day(s) from {start_date} to {end_date}")
     print(f"Using regions file: {regions_path}")
+    print("Mode: safe backfill. Existing rows will not be modified.")
 
     for target_date in dates:
         print(f"\n--- {target_date.isoformat()} ---")
+
         try:
             daily_df = process_single_date(
                 target_date=target_date,
@@ -105,6 +182,7 @@ def run_backfill(
             )
             print(f"Created {len(daily_df):,} region-day rows")
             all_results.append(daily_df)
+
         except Exception as exc:
             print(f"Failed for {target_date.isoformat()}: {exc}")
 
@@ -112,36 +190,82 @@ def run_backfill(
         raise RuntimeError("No dates were processed successfully.")
 
     new_df = pd.concat(all_results, ignore_index=True)
-    new_df["date"] = pd.to_datetime(new_df["date"]).dt.date
+    new_df = keep_region_daily_sst_columns(new_df)
 
-    if append and output_path.exists():
-        print(f"\nAppend mode enabled. Reading existing history: {output_path}")
+    new_df = (
+        new_df.sort_values(["date", "region_id"])
+        .drop_duplicates(subset=KEY_COLUMNS, keep="last")
+        .reset_index(drop=True)
+    )
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if output_path.exists():
+        print(f"\nReading existing history: {output_path}")
 
         existing_df = pd.read_parquet(output_path)
-        existing_df["date"] = pd.to_datetime(existing_df["date"]).dt.date
+        existing_df = keep_region_daily_sst_columns(existing_df)
 
-        history_df = pd.concat([existing_df, new_df], ignore_index=True)
+        missing_df, skipped_existing_rows = find_missing_rows_only(
+            new_df=new_df,
+            existing_df=existing_df,
+        )
+
+        print(f"Rows generated by backfill: {len(new_df):,}")
+        print(f"Rows already present and skipped: {skipped_existing_rows:,}")
+        print(f"New missing rows to add: {len(missing_df):,}")
+
+        if missing_df.empty:
+            print("\nNo missing rows to add.")
+            print("Existing history file was not changed.")
+
+            history_df = existing_df.sort_values(["date", "region_id"]).reset_index(
+                drop=True
+            )
+
+            return history_df
+
+        history_df = pd.concat([existing_df, missing_df], ignore_index=True)
 
         history_df = (
-            history_df.drop_duplicates(subset=["date", "region_id"], keep="last")
-            .sort_values(["date", "region_id"])
+            history_df.sort_values(["date", "region_id"])
+            .drop_duplicates(subset=KEY_COLUMNS, keep="first")
             .reset_index(drop=True)
         )
 
     else:
-        if append:
-            print("\nAppend mode enabled, but no existing history file was found.")
-            print("Creating a new history file.")
+        print("\nNo existing history file was found.")
+        print("Creating a new history file from the requested backfill range.")
 
         history_df = new_df.sort_values(["date", "region_id"]).reset_index(drop=True)
 
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    history_df.to_parquet(output_path, index=False)
+    duplicate_count = history_df.duplicated(KEY_COLUMNS).sum()
+
+    if duplicate_count > 0:
+        raise RuntimeError(
+            f"Backfill would create {duplicate_count} duplicate date-region rows."
+        )
+
+    if dry_run:
+        print("\nDry run enabled.")
+        print("No output file was written.")
+    else:
+        backup_path = backup_existing_output(output_path)
+
+        if backup_path is not None:
+            print(f"\nBackup saved before writing output: {backup_path}")
+
+        history_df.to_parquet(output_path, index=False)
 
     print("\nBackfill complete.")
-    print(f"Saved {len(history_df):,} total rows to: {output_path}")
+    print(f"Rows in final history table: {len(history_df):,}")
     print(f"Date range: {history_df['date'].min()} to {history_df['date'].max()}")
-    print("Preview:")
+    print(f"Duplicate date-region rows: {history_df.duplicated(KEY_COLUMNS).sum()}")
+
+    if not dry_run:
+        print(f"Saved output to: {output_path}")
+
+    print("\nPreview:")
     print(history_df.tail())
 
     return history_df
@@ -159,7 +283,10 @@ def parse_iso_date(value: str) -> date:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Backfill daily regional SST summaries across a date range.",
+        description=(
+            "Safely backfill missing daily regional SST summaries. "
+            "Existing date-region rows are never replaced."
+        ),
     )
     parser.add_argument(
         "--start-date",
@@ -186,18 +313,27 @@ if __name__ == "__main__":
     parser.add_argument(
         "--output-file",
         default=str(DEFAULT_OUTPUT_FILE),
-        help="Path where the combined history parquet will be saved.",
+        help="Path where the regional SST history parquet is stored.",
     )
     parser.add_argument(
         "--overwrite-download",
         action="store_true",
-        help="Re-download files even if they already exist locally.",
+        help="Re-download raw OISST files even if they already exist locally.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Process the dates and report what would change, but do not write the output parquet.",
     )
     parser.add_argument(
         "--append",
         action="store_true",
-        help="Append new dates to the existing history parquet instead of overwriting it.",
+        help=(
+            "Deprecated: safe append-only backfill is now always used. "
+            "This flag is kept so older commands still work."
+        ),
     )
+
     args = parser.parse_args()
 
     run_backfill(
@@ -207,5 +343,5 @@ if __name__ == "__main__":
         raw_dir=Path(args.raw_dir),
         output_path=Path(args.output_file),
         overwrite_download=args.overwrite_download,
-        append=args.append,
+        dry_run=args.dry_run,
     )
