@@ -24,6 +24,15 @@ def run_script(script_name: str, extra_args: list[str] | None = None) -> None:
     run_command(command)
 
 
+def run_module(module_name: str, extra_args: list[str] | None = None) -> None:
+    command = [sys.executable, "-m", module_name]
+
+    if extra_args:
+        command.extend(extra_args)
+
+    run_command(command)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Run the full daily NZ ocean heat monitoring pipeline."
@@ -117,7 +126,7 @@ def main() -> None:
 
     if not args.skip_load_prelim:
         print_section("Step 3: Load preliminary outputs to PostgreSQL")
-        run_script("load_preliminary_postgres.py")
+        run_module("nzheat.load.load_preliminary_postgres")
     else:
         print_section("Step 3 skipped: preliminary PostgreSQL load")
 
