@@ -1,16 +1,30 @@
+.DS_Store
+
+
 .env
-
-data/raw/
-data/interim/
-data/processed/
-
+.venv/
+env/
+venv/
 __pycache__/
 *.pyc
 
-.venv/
-venv/
-
+# Data
+data/raw/
+data/interim/
+data/processed/
 *.nc
 *.parquet
 
+# Logs
+logs/
+*.log
+
+# Power BI local files
+*.pbix
+*.pbit
+
+# OS/editor
 .DS_Store
+Thumbs.db
+.vscode/
+.ipynb_checkpoints/
