@@ -4,8 +4,8 @@ from pathlib import Path
 import argparse
 import os
 from urllib.parse import quote_plus
-from dotenv import load_dotenv
 
+from dotenv import load_dotenv
 import pandas as pd
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
@@ -15,6 +15,83 @@ DEFAULT_REGION_DAILY_SST_FILE = Path("data/processed/region_daily_sst_history.pa
 DEFAULT_CLIMATOLOGY_FILE = Path("data/processed/region_climatology.parquet")
 DEFAULT_ANOMALIES_FILE = Path("data/processed/region_daily_anomalies.parquet")
 DEFAULT_EVENTS_FILE = Path("data/processed/heat_events.parquet")
+
+
+EXPECTED_COLUMNS = {
+    "regions": [
+        "region_id",
+        "region_code",
+        "region_name",
+    ],
+    "region_daily_sst": [
+        "date",
+        "region_id",
+        "region_code",
+        "region_name",
+        "mean_sst_c",
+        "cell_count",
+        "min_sst_c",
+        "max_sst_c",
+    ],
+    "region_climatology": [
+        "region_id",
+        "region_code",
+        "region_name",
+        "day_of_year",
+        "clim_mean_sst_c",
+        "clim_p90_sst_c",
+        "sample_size",
+    ],
+    "region_daily_anomalies": [
+        "date",
+        "region_id",
+        "region_code",
+        "region_name",
+        "day_of_year",
+        "mean_sst_c",
+        "cell_count",
+        "min_sst_c",
+        "max_sst_c",
+        "clim_mean_sst_c",
+        "clim_p90_sst_c",
+        "sample_size",
+        "anomaly_c",
+        "rolling_7d_anomaly_c",
+        "rolling_30d_anomaly_c",
+        "warming_rate_7d_c",
+        "above_p90",
+        "status_label",
+    ],
+    "heat_events": [
+        "event_id",
+        "region_id",
+        "region_code",
+        "region_name",
+        "event_type",
+        "severity_class",
+        "start_date",
+        "end_date",
+        "duration_days",
+        "max_anomaly_c",
+        "mean_anomaly_c",
+        "max_exceedance_p90_c",
+        "mean_exceedance_p90_c",
+        "peak_date",
+        "is_active",
+        "threshold_c",
+        "min_duration_days",
+    ],
+}
+
+
+PRIMARY_KEY_COLUMNS = {
+    "regions": ["region_id"],
+    "region_daily_sst": ["date", "region_id"],
+    "region_climatology": ["region_id", "day_of_year"],
+    "region_daily_anomalies": ["date", "region_id"],
+    "heat_events": ["event_id"],
+}
+
 
 # Load environment variables from the project root .env file if present.
 load_dotenv()
@@ -78,29 +155,56 @@ def load_regions_geojson(regions_path: Path) -> pd.DataFrame:
     """
     Load region attributes from the GeoJSON file.
 
-    For the first loader version, we store only the core attributes and skip geometry loading.
-    Geometry can be added later with GeoPandas/PostGIS-specific handling.
+    The Postgres core.regions table also allows geom_wkt, but this loader keeps
+    only the core region attributes used by the analytics tables.
     """
     import geopandas as gpd
 
     gdf = gpd.read_file(regions_path)
 
-    keep_cols = [
-        col for col in ["region_id", "region_code", "region_name"] if col in gdf.columns
-    ]
-    if not keep_cols:
+    required_cols = ["region_id", "region_code", "region_name"]
+    missing_cols = [col for col in required_cols if col not in gdf.columns]
+
+    if missing_cols:
         raise ValueError(
-            "The regions file must contain region_id, region_code, and region_name columns."
+            f"The regions file is missing required columns: {missing_cols}"
         )
 
-    df = gdf[keep_cols].copy()
+    df = gdf[required_cols].copy()
     df["region_id"] = df["region_id"].astype(int)
+
     return df
 
 
 def load_parquet_table(parquet_path: Path) -> pd.DataFrame:
     """Load a parquet file into a pandas DataFrame."""
+    if not parquet_path.exists():
+        raise FileNotFoundError(f"Missing parquet file: {parquet_path}")
+
     return pd.read_parquet(parquet_path)
+
+
+def select_expected_columns(table_name: str, df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Keep only the columns expected by the target PostgreSQL table.
+
+    This prevents extra columns in parquet files from breaking the database load.
+    """
+    if table_name not in EXPECTED_COLUMNS:
+        raise ValueError(f"No expected-column definition for table: {table_name}")
+
+    expected_cols = EXPECTED_COLUMNS[table_name]
+    missing_cols = [col for col in expected_cols if col not in df.columns]
+
+    if missing_cols:
+        raise ValueError(f"{table_name} is missing required columns: {missing_cols}")
+
+    extra_cols = [col for col in df.columns if col not in expected_cols]
+
+    if extra_cols:
+        print(f"{table_name}: dropping unexpected columns: {extra_cols}")
+
+    return df[expected_cols].copy()
 
 
 def normalize_dataframe_types(table_name: str, df: pd.DataFrame) -> pd.DataFrame:
@@ -135,12 +239,56 @@ def normalize_dataframe_types(table_name: str, df: pd.DataFrame) -> pd.DataFrame
     if "min_duration_days" in result.columns:
         result["min_duration_days"] = result["min_duration_days"].astype(int)
 
+    if "above_p90" in result.columns:
+        result["above_p90"] = result["above_p90"].astype(bool)
+    if "is_active" in result.columns:
+        result["is_active"] = result["is_active"].astype(bool)
+
     return result
+
+
+def validate_primary_keys(table_name: str, df: pd.DataFrame) -> None:
+    """Fail early if a dataframe would violate the target table primary key."""
+    key_cols = PRIMARY_KEY_COLUMNS.get(table_name)
+
+    if not key_cols:
+        return
+
+    missing_key_cols = [col for col in key_cols if col not in df.columns]
+
+    if missing_key_cols:
+        raise ValueError(
+            f"{table_name} is missing primary-key columns: {missing_key_cols}"
+        )
+
+    duplicate_count = df.duplicated(key_cols).sum()
+
+    if duplicate_count > 0:
+        duplicate_preview = df.loc[df.duplicated(key_cols, keep=False), key_cols].head(
+            20
+        )
+
+        raise ValueError(
+            f"{table_name} has {duplicate_count} duplicate primary-key rows "
+            f"based on {key_cols}.\nPreview:\n{duplicate_preview}"
+        )
+
+
+def prepare_table_for_load(table_name: str, df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Select expected columns, normalize dtypes, and validate primary keys.
+    """
+    prepared_df = select_expected_columns(table_name, df)
+    prepared_df = normalize_dataframe_types(table_name, prepared_df)
+    validate_primary_keys(table_name, prepared_df)
+
+    return prepared_df
 
 
 def truncate_table(engine: Engine, schema_name: str, table_name: str) -> None:
     """Truncate a target table before reloading it."""
     statement = text(f"TRUNCATE TABLE {schema_name}.{table_name} CASCADE;")
+
     with engine.begin() as connection:
         connection.execute(statement)
 
@@ -177,18 +325,22 @@ def load_all_outputs(
 ) -> None:
     """Load all processed project outputs into PostgreSQL."""
     print("Loading core.regions...")
-    regions_df = normalize_dataframe_types(
-        "regions", load_regions_geojson(regions_path)
+    regions_df = prepare_table_for_load(
+        "regions",
+        load_regions_geojson(regions_path),
     )
     if truncate_first:
         truncate_table(engine, "core", "regions")
     load_dataframe_to_table(
-        engine, regions_df, schema_name="core", table_name="regions"
+        engine,
+        regions_df,
+        schema_name="core",
+        table_name="regions",
     )
     print(f"Loaded {len(regions_df):,} rows into core.regions")
 
     print("Loading analytics.region_daily_sst...")
-    region_daily_sst_df = normalize_dataframe_types(
+    region_daily_sst_df = prepare_table_for_load(
         "region_daily_sst",
         load_parquet_table(region_daily_sst_path),
     )
@@ -203,7 +355,7 @@ def load_all_outputs(
     print(f"Loaded {len(region_daily_sst_df):,} rows into analytics.region_daily_sst")
 
     print("Loading analytics.region_climatology...")
-    climatology_df = normalize_dataframe_types(
+    climatology_df = prepare_table_for_load(
         "region_climatology",
         load_parquet_table(climatology_path),
     )
@@ -218,7 +370,7 @@ def load_all_outputs(
     print(f"Loaded {len(climatology_df):,} rows into analytics.region_climatology")
 
     print("Loading analytics.region_daily_anomalies...")
-    anomalies_df = normalize_dataframe_types(
+    anomalies_df = prepare_table_for_load(
         "region_daily_anomalies",
         load_parquet_table(anomalies_path),
     )
@@ -233,7 +385,7 @@ def load_all_outputs(
     print(f"Loaded {len(anomalies_df):,} rows into analytics.region_daily_anomalies")
 
     print("Loading analytics.heat_events...")
-    events_df = normalize_dataframe_types(
+    events_df = prepare_table_for_load(
         "heat_events",
         load_parquet_table(events_path),
     )
