@@ -3,7 +3,9 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
+from nzheat.utils.paths import find_project_root
+
+PROJECT_ROOT = find_project_root()
 
 
 def run_command(command: list[str]) -> None:

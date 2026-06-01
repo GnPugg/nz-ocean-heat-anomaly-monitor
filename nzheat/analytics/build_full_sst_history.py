@@ -1,7 +1,10 @@
 from pathlib import Path
 import pandas as pd
 
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
+from nzheat.utils.paths import find_project_root
+
+PROJECT_ROOT = find_project_root()
+
 PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
 
 OUTPUT_FILE = PROCESSED_DIR / "region_daily_sst_full_history.parquet"
