@@ -28,3 +28,6 @@ logs/
 Thumbs.db
 .vscode/
 .ipynb_checkpoints/
+
+.Rhistory
+.RData
