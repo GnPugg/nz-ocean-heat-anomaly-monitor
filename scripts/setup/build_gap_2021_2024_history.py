@@ -5,9 +5,9 @@ from pathlib import Path
 
 import pandas as pd
 
-from nzheat.utils.commands import run_command
+from nzheat.utils.paths import find_project_root
 
-PROJECT_ROOT = = find_project_root()
+PROJECT_ROOT = find_project_root()
 
 RAW_DIR = PROJECT_ROOT / "data" / "raw" / "oisst_gap_2021_2024"
 PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"

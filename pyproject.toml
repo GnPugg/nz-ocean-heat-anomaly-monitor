@@ -20,7 +20,7 @@ dependencies = [
     "netcdf4",
     "h5netcdf",
     "shapely",
-    "nunpy"
+    "numpy"
 ]
 
 [tool.setuptools.packages.find]

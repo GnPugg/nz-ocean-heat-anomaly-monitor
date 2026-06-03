@@ -4,8 +4,9 @@ from pathlib import Path
 import math
 
 import pandas as pd
+from nzheat.utils.paths import find_project_root
 
-PROJECT_ROOT = = find_project_root()
+PROJECT_ROOT = find_project_root()
 PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
 
 INPUT_FILES = [
