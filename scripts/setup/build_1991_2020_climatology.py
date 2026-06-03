@@ -6,7 +6,7 @@ import sys
 
 from nzheat.utils.commands import run_command
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = = find_project_root()
 
 BASELINE_START_YEAR = 1991
 BASELINE_END_YEAR = 2020

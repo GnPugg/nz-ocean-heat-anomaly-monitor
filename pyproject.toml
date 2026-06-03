@@ -19,7 +19,8 @@ dependencies = [
     "pyarrow",
     "netcdf4",
     "h5netcdf",
-    "shapely"
+    "shapely",
+    "nunpy"
 ]
 
 [tool.setuptools.packages.find]

@@ -5,8 +5,9 @@ import sys
 import pandas as pd
 
 from nzheat.utils.commands import run_command
+from nzheat.utils.paths import find_project_root
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = find_project_root()
 HISTORY_PATH = PROJECT_ROOT / "data" / "processed" / "region_daily_sst_history.parquet"
 
 SAFE_LAG_DAYS = 18

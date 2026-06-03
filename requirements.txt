@@ -9,3 +9,4 @@ pyarrow
 netcdf4
 h5netcdf
 shapely
+nunpy 

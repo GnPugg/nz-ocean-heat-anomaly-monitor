@@ -5,8 +5,11 @@ import sys
 from pathlib import Path
 
 from nzheat.utils.commands import run_command
+from nzheat.utils.paths import find_project_root
 
-SCRIPTS_DIR = Path("scripts")
+PROJECT_ROOT = find_project_root()
+MONITORING_DIR = PROJECT_ROOT / "scripts" / "monitoring"
+MAINTENANCE_DIR = PROJECT_ROOT / "scripts" / "maintenance"
 
 
 def print_section(title: str) -> None:
@@ -15,8 +18,11 @@ def print_section(title: str) -> None:
     print("=" * 60)
 
 
-def run_script(script_name: str, extra_args: list[str] | None = None) -> None:
-    command = [sys.executable, str(SCRIPTS_DIR / script_name)]
+def run_script(script_path: Path, extra_args: list[str] | None = None) -> None:
+    if not script_path.exists():
+        raise FileNotFoundError(f"Script not found: {script_path}")
+
+    command = [sys.executable, str(script_path)]
 
     if extra_args:
         command.extend(extra_args)
@@ -98,7 +104,7 @@ def main() -> None:
         print_section(
             "Step 1: Final daily append + final anomalies/events + final database load"
         )
-        run_script("run_daily_append.py")
+        run_script(MONITORING_DIR / "run_daily_append.py")
     else:
         print_section("Step 1 skipped: final daily append")
 
@@ -120,7 +126,7 @@ def main() -> None:
         if args.overwrite_prelim_download:
             prelim_args.append("--overwrite-download")
 
-        run_script("run_preliminary_update.py", prelim_args)
+        run_script(MONITORING_DIR / "run_preliminary_update.py", prelim_args)
     else:
         print_section("Step 2 skipped: preliminary update")
 
@@ -132,13 +138,13 @@ def main() -> None:
 
     if not args.skip_monitoring:
         print_section("Step 4: Build and load combined monitoring anomalies table")
-        run_script("build_and_load_monitoring_anomalies.py")
+        run_script(MONITORING_DIR / "build_and_load_monitoring_anomalies.py")
     else:
         print_section("Step 4 skipped: monitoring anomalies table")
 
     if not args.skip_validate:
         print_section("Step 5: Validate processed outputs")
-        run_script("validate_outputs.py")
+        run_script(MAINTENANCE_DIR / "validate_outputs.py")
     else:
         print_section("Step 5 skipped: validation")
 

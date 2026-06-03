@@ -5,7 +5,7 @@ import math
 
 import pandas as pd
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = = find_project_root()
 PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
 
 INPUT_FILES = [

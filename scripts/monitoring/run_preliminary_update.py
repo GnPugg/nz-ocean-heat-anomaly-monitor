@@ -10,8 +10,10 @@ import pandas as pd
 import requests
 
 from nzheat.utils.commands import run_command
+from nzheat.utils.paths import find_project_root
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = find_project_root()
+
 from nzheat.transform.region_join import (
     keep_useful_columns,
     load_oisst_as_dataframe,

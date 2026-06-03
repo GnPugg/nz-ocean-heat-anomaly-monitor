@@ -7,7 +7,7 @@ import pandas as pd
 
 from nzheat.utils.commands import run_command
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = = find_project_root()
 
 RAW_DIR = PROJECT_ROOT / "data" / "raw" / "oisst_gap_2021_2024"
 PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"

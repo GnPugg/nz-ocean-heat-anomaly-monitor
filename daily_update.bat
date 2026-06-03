@@ -21,9 +21,9 @@ IF ERRORLEVEL 1 (
     exit /b 1
 )
 
-echo Running scripts\run_daily_pipeline.py >> "%LOG_FILE%"
+echo Running scripts\monitoring\run_daily_pipeline.py >> "%LOG_FILE%"
 
-python scripts\run_daily_pipeline.py >> "%LOG_FILE%" 2>&1
+python scripts\monitoring\run_daily_pipeline.py >> "%LOG_FILE%" 2>&1
 
 IF ERRORLEVEL 1 (
     echo run_daily_pipeline.py failed at %date% %time% >> "%LOG_FILE%"

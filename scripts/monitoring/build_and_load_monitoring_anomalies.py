@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-
+from nzheat.utils.paths import find_project_root
 import pandas as pd
 
 from nzheat.load.load_postgres import (
@@ -11,7 +11,7 @@ from nzheat.load.load_postgres import (
     normalize_dataframe_types,
 )
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = find_project_root()
 PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
 
 FINAL_ANOMALIES_FILE = PROCESSED_DIR / "region_daily_anomalies.parquet"
