@@ -33,3 +33,18 @@ ON analytics.heat_events_prelim(is_active);
 
 CREATE INDEX IF NOT EXISTS idx_heat_events_prelim_dates
 ON analytics.heat_events_prelim(start_date, end_date);
+
+CREATE INDEX IF NOT EXISTS idx_pipeline_runs_pipeline_name
+ON meta.pipeline_runs (pipeline_name);
+
+CREATE INDEX IF NOT EXISTS idx_pipeline_runs_started_at
+ON meta.pipeline_runs (started_at);
+
+CREATE INDEX IF NOT EXISTS idx_pipeline_runs_status
+ON meta.pipeline_runs (status);
+
+CREATE INDEX IF NOT EXISTS idx_pipeline_log_events_run_id
+ON meta.pipeline_log_events (run_id);
+
+CREATE INDEX IF NOT EXISTS idx_pipeline_log_events_logged_at
+ON meta.pipeline_log_events (logged_at);

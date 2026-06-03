@@ -3,8 +3,11 @@ from __future__ import annotations
 from pathlib import Path
 import argparse
 import uuid
+import logging
 
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_INPUT_FILE = Path("data/processed/region_daily_anomalies.parquet")
 DEFAULT_OUTPUT_FILE = Path("data/processed/heat_events.parquet")
@@ -244,13 +247,46 @@ def main(
     anomaly_threshold: float,
     min_duration_days: int,
 ) -> None:
-    print(f"Loading anomaly table: {input_path}")
+    logger.info("Loading anomaly table: %s", input_path)
     anomalies_df = load_anomalies(input_path)
-    print(f"Loaded {len(anomalies_df):,} anomaly rows")
+    logger.info("Loaded %s anomaly rows", len(anomalies_df))
+
+    if anomalies_df.empty:
+        raise RuntimeError("Anomaly table is empty. Cannot detect heat events.")
+
+    logger.info(
+        "Anomaly input date range: %s to %s",
+        anomalies_df["date"].min(),
+        anomalies_df["date"].max(),
+    )
+    logger.info(
+        "Regions in anomaly input: %s",
+        anomalies_df["region_id"].nunique(),
+    )
 
     prepared_df = prepare_anomalies(anomalies_df)
-    flagged_df = add_event_flags(prepared_df, anomaly_threshold=anomaly_threshold)
+    logger.info("Rows after event preparation: %s", len(prepared_df))
+
+    flagged_df = add_event_flags(
+        prepared_df,
+        anomaly_threshold=anomaly_threshold,
+    )
+    event_day_count = int(flagged_df["is_event_day"].sum())
+
+    logger.info(
+        "Event-day candidate rows: %s",
+        event_day_count,
+    )
+    logger.info(
+        "Minimum event duration: %s days",
+        min_duration_days,
+    )
+
     grouped_df = assign_event_groups(flagged_df)
+    logger.info(
+        "Assigned event groups: %s groups",
+        grouped_df["event_group_id"].nunique(),
+    )
 
     events_df = summarize_events(
         grouped_df,
@@ -258,12 +294,33 @@ def main(
         anomaly_threshold=anomaly_threshold,
     )
 
-    print(f"Created {len(events_df):,} event rows")
-    print("Preview:")
-    print(events_df.head())
+    logger.info("Created %s event rows", len(events_df))
+
+    if events_df.empty:
+        logger.warning("No heat events met the minimum duration threshold.")
+    else:
+        logger.info(
+            "Event date range: %s to %s",
+            events_df["start_date"].min(),
+            events_df["end_date"].max(),
+        )
+        logger.info(
+            "Active events: %s",
+            int(events_df["is_active"].sum()),
+        )
+        logger.info(
+            "Severity counts: %s",
+            events_df["severity_class"].value_counts().to_dict(),
+        )
+        logger.info(
+            "Longest event duration: %s days",
+            int(events_df["duration_days"].max()),
+        )
+
+    logger.info("Event output preview:\n%s", events_df.head().to_string(index=False))
 
     save_output(events_df, output_path)
-    print(f"Saved events output to: {output_path}")
+    logger.info("Saved events output to: %s", output_path)
 
 
 if __name__ == "__main__":
@@ -293,6 +350,11 @@ if __name__ == "__main__":
         help="Minimum number of consecutive days required to count as an event.",
     )
     args = parser.parse_args()
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    )
 
     main(
         input_path=Path(args.input_file),

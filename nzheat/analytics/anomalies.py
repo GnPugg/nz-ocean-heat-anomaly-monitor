@@ -5,6 +5,10 @@ from datetime import date
 import argparse
 
 import pandas as pd
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 DEFAULT_HISTORY_FILE = Path("data/processed/region_daily_sst_history.parquet")
 DEFAULT_CLIMATOLOGY_FILE = Path("data/processed/region_climatology.parquet")
@@ -179,38 +183,74 @@ def main(
     analysis_start: pd.Timestamp | None,
     analysis_end: pd.Timestamp | None,
 ) -> None:
-    print(f"Loading regional SST history: {history_path}")
+    logger.info("Loading regional SST history: %s", history_path)
     history_df = load_history(history_path)
-    print(f"Loaded {len(history_df):,} history rows")
+    logger.info("Loaded %s history rows", len(history_df))
 
-    print(f"Loading climatology: {climatology_path}")
+    logger.info("Loading climatology: %s", climatology_path)
     climatology_df = load_climatology(climatology_path)
-    print(f"Loaded {len(climatology_df):,} climatology rows")
+    logger.info("Loaded %s climatology rows", len(climatology_df))
 
     prepared_history = prepare_history(history_df)
-    print(f"Rows after history preparation: {len(prepared_history):,}")
+    logger.info("Rows after history preparation: %s", len(prepared_history))
 
     analysis_history = filter_analysis_period(
         prepared_history,
         analysis_start=analysis_start,
         analysis_end=analysis_end,
     )
-    print(f"Rows in analysis period: {len(analysis_history):,}")
+    logger.info("Rows in analysis period: %s", len(analysis_history))
 
     if analysis_history.empty:
         raise RuntimeError("No rows found in the requested analysis period.")
 
+    logger.info(
+        "Analysis date range: %s to %s",
+        analysis_history["date"].min(),
+        analysis_history["date"].max(),
+    )
+    logger.info(
+        "Regions in analysis period: %s",
+        analysis_history["region_id"].nunique(),
+    )
+
     merged_df = join_history_to_climatology(analysis_history, climatology_df)
-    print(f"Rows after climatology join: {len(merged_df):,}")
+    logger.info("Rows after climatology join: %s", len(merged_df))
+
+    missing_climatology_rows = merged_df["clim_mean_sst_c"].isna().sum()
+    if missing_climatology_rows > 0:
+        logger.warning(
+            "Rows with missing climatology after join: %s",
+            missing_climatology_rows,
+        )
 
     anomalies_df = calculate_anomalies(merged_df)
-    print(f"Created {len(anomalies_df):,} anomaly rows")
+    logger.info("Created %s anomaly rows", len(anomalies_df))
 
-    print("Preview:")
-    print(anomalies_df.head())
+    logger.info(
+        "Anomaly date range: %s to %s",
+        anomalies_df["date"].min(),
+        anomalies_df["date"].max(),
+    )
+    logger.info(
+        "Regions in anomaly output: %s",
+        anomalies_df["region_id"].nunique(),
+    )
+    logger.info(
+        "Rows above climatological p90: %s",
+        int(anomalies_df["above_p90"].sum()),
+    )
+    logger.info(
+        "Status label counts: %s",
+        anomalies_df["status_label"].value_counts().to_dict(),
+    )
+
+    logger.info(
+        "Anomaly output preview:\n%s", anomalies_df.head().to_string(index=False)
+    )
 
     save_output(anomalies_df, output_path)
-    print(f"Saved anomaly output to: {output_path}")
+    logger.info("Saved anomaly output to: %s", output_path)
 
 
 if __name__ == "__main__":
@@ -245,6 +285,11 @@ if __name__ == "__main__":
         help="Analysis end date in YYYY-MM-DD format.",
     )
     args = parser.parse_args()
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    )
 
     main(
         history_path=Path(args.history_file),

@@ -130,3 +130,23 @@ CREATE TABLE IF NOT EXISTS analytics.heat_events_prelim (
     data_product TEXT DEFAULT 'preliminary',
     is_provisional BOOLEAN DEFAULT TRUE
 );
+
+CREATE TABLE IF NOT EXISTS meta.pipeline_runs (
+    run_id UUID PRIMARY KEY,
+    pipeline_name TEXT NOT NULL,
+    status TEXT NOT NULL,
+    started_at TIMESTAMPTZ NOT NULL,
+    finished_at TIMESTAMPTZ,
+    duration_seconds DOUBLE PRECISION,
+    message TEXT,
+    error_message TEXT
+);
+
+CREATE TABLE IF NOT EXISTS meta.pipeline_log_events (
+    log_id BIGSERIAL PRIMARY KEY,
+    run_id UUID NOT NULL REFERENCES meta.pipeline_runs(run_id) ON DELETE CASCADE,
+    logged_at TIMESTAMPTZ NOT NULL,
+    level TEXT NOT NULL,
+    message TEXT NOT NULL,
+    extra JSONB
+);
