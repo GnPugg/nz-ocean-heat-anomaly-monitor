@@ -3,9 +3,9 @@ setlocal
 
 REM Copy this file to daily_update.bat and replace CHANGE_ME with your project path.
 REM Example:
-REM set PROJECT_DIR=C:\Users\yourname\Documents\nz-ocean-heat-anomaly-monitor
+REM set "PROJECT_DIR=C:\Users\yourname\Documents\nz-ocean-heat-anomaly-monitor"
 
-set PROJECT_DIR=CHANGE_ME
+set "PROJECT_DIR=CHANGE_ME"
 
 IF "%PROJECT_DIR%"=="CHANGE_ME" (
     echo Please edit PROJECT_DIR before running this script.
@@ -17,8 +17,8 @@ IF NOT EXIST "%PROJECT_DIR%" (
     exit /b 1
 )
 
-set LOG_DIR=%PROJECT_DIR%\logs
-set LOG_FILE=%LOG_DIR%\daily_update.log
+set "LOG_DIR=%PROJECT_DIR%\logs"
+set "LOG_FILE=%LOG_DIR%\daily_update.log"
 
 cd /d "%PROJECT_DIR%"
 
@@ -35,6 +35,8 @@ IF ERRORLEVEL 1 (
     echo =============================== >> "%LOG_FILE%"
     exit /b 1
 )
+
+set "PYTHONPATH=%PROJECT_DIR%;%PYTHONPATH%"
 
 echo Running scripts\monitoring\run_daily_pipeline.py >> "%LOG_FILE%"
 
