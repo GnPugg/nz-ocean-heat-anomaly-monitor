@@ -8,6 +8,38 @@ The purpose of this project is to demonstrate the data pipeline, modelling workf
 
 ---
 
+## What this project demonstrates
+
+- Incremental ingestion of daily NOAA OISST data
+- Geospatial aggregation with xarray and GeoPandas
+- Fixed-baseline anomaly and heat-event calculations
+- PostgreSQL analytical and monitoring data models
+- Dockerised execution and automated testing
+- Scheduled final and preliminary data updates
+- Power BI reporting
+
+## Architecture
+
+NOAA OISST 
+    │
+    ▼
+Python extraction 
+    │
+    ▼
+Regional transformation 
+    │
+    ├── Parquet processing layer
+    │
+    ▼
+PostgreSQL 
+    │
+    ▼
+Power BI
+
+Tests ──► Pipeline
+Logs  ◄── Pipeline
+Scheduler ──► Daily update
+
 ## Contents
 - [Review Quick Start](#Review-Quick-Start)
 - [Project Overview](#project-overview)
@@ -236,7 +268,7 @@ NOAA OISST has a 0.25° spatial resolution, so this project focuses on regional 
 
 ---
 
-## Architecture
+## Architecture scientific workflow
 
 
 ```text
@@ -365,11 +397,11 @@ nz-ocean-heat-anomaly-monitor/
 │   └── 05_logging_views.sql
 │
 ├── tests/
-│   ├── tests_anomalies.py
+│   ├── test_anomalies.py
 │   ├── test_events.py
 │   ├── test_extract_oisst.py
 │   ├── test_paths.py
-│   ├── test_projection+10yr.py
+│   ├── test_projection_10yr.py
 │   └── test_region_aggregation.py
 │
 ├── nzheat/
@@ -942,7 +974,7 @@ or a single test for example:
 ```powershell
 python -m pytest tests\test_events.py -q
 ```
-or to check if everything complie:
+or to check if everything complies:
 
 ```powershell
 python -m compileall nzheat scripts
