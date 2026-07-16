@@ -1,5 +1,7 @@
 name: CI
 
+run-name: "Docker integration tests #${{ github.run_number }} - ${{ github.ref_name }} - triggered by ${{ github.actor }}"
+
 on:
   pull_request:
   push:
