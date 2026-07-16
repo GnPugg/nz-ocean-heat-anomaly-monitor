@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docker-integration-tests:
+    name: Docker integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Display Docker versions
+        run: |
+          docker --version
+          docker compose version
+
+      - name: Validate Docker Compose
+        run: docker compose config --quiet
+
+      - name: Build and run tests
+        run: |
+          docker compose up \
+            --build \
+            --abort-on-container-exit \
+            --exit-code-from app
+
+      - name: Display logs after failure
+        if: failure()
+        run: docker compose logs --no-color
+
+      - name: Clean up containers and volumes
+        if: always()
+        run: |
+          docker compose down \
+            --volumes \
+            --remove-orphans
