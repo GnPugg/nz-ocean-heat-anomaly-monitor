@@ -69,6 +69,26 @@ Parquet Processing Layer              PostgreSQL
         Docker • Pytest • Validation • Logging
           Windows Task Scheduler (Current)
 ```
+## Dashboard Preview
+
+The pipeline publishes processed SST observations to PostgreSQL, where they are consumed by Power BI to provide operational monitoring of New Zealand coastal marine heat conditions.
+
+### NZ Coastal Ocean Heat Overview
+
+The overview dashboard provides daily operational monitoring of sea surface temperature anomalies, climatological thresholds, and detected marine heat events across New Zealand coastal regions.
+
+<p align="center">
+  <img src="docs/images/overview_dashboard.png" width="900">
+</p>
+
+### NZ Coastal Ocean Heat Footprint
+
+The spatial dashboard highlights the latest regional distribution of marine heat anomalies, allowing rapid identification of coastal regions experiencing the strongest warming.
+
+<p align="center">
+  <img src="docs/images/heat_footprint.png" width="900">
+</p> 
+
 
 > **Future cloud deployment**
 >

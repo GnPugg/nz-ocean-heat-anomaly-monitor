@@ -48,7 +48,9 @@ def add_event_flags(df: pd.DataFrame, anomaly_threshold: float) -> pd.DataFrame:
     even though the current rule uses above_p90 rather than anomaly_c.
     """
     flagged = df.copy()
-    flagged["is_event_day"] = flagged["above_p90"].fillna(False).astype(bool)
+    flagged["is_event_day"] = (
+        flagged["above_p90"].astype("boolean").fillna(False).astype(bool)
+    )
     return flagged
 
 
