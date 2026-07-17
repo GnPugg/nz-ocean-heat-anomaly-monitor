@@ -561,54 +561,36 @@ def main() -> None:
                 reason="--skip-validate was supplied",
             )
 
-        if not args.skip_final:
-            print_section("Step 5: Publish validated final outputs to PostgreSQL")
-            run_module(
-                "nzheat.load.load_postgres",
-                run_logger=run_logger,
-                step_name="load_final_postgres",
-            )
-            log_final_table_metrics(run_logger)
-        else:
-            print_section("Step 5 skipped: final PostgreSQL publication")
+        publication_args: list[str] = []
+        if args.skip_final:
+            publication_args.append("--skip-final")
+        if args.skip_load_prelim:
+            publication_args.append("--skip-preliminary")
+        if args.skip_monitoring:
+            publication_args.append("--skip-monitoring")
+
+        if args.skip_final and args.skip_load_prelim and args.skip_monitoring:
+            print_section("Step 5 skipped: no PostgreSQL publication groups enabled")
             log_skipped_step(
                 run_logger,
-                step_name="load_final_postgres",
-                reason="--skip-final was supplied",
+                step_name="publish_all_postgres",
+                reason="All publication groups were skipped",
+            )
+        else:
+            print_section("Step 5: Publish all validated outputs atomically")
+            run_module(
+                "nzheat.load.publish_all_postgres",
+                extra_args=publication_args,
+                run_logger=run_logger,
+                step_name="publish_all_postgres",
             )
 
-        if not args.skip_load_prelim:
-            print_section("Step 6: Publish validated preliminary outputs to PostgreSQL")
-            run_module(
-                "nzheat.load.load_preliminary_postgres",
-                run_logger=run_logger,
-                step_name="load_preliminary_postgres",
-            )
-            log_preliminary_table_metrics(run_logger)
-        else:
-            print_section("Step 6 skipped: preliminary PostgreSQL publication")
-            log_skipped_step(
-                run_logger,
-                step_name="load_preliminary_postgres",
-                reason="--skip-load-prelim was supplied",
-            )
-
-        if not args.skip_monitoring:
-            print_section("Step 7: Publish validated monitoring output to PostgreSQL")
-            run_script(
-                MONITORING_DIR / "build_and_load_monitoring_anomalies.py",
-                extra_args=["--load-only"],
-                run_logger=run_logger,
-                step_name="load_monitoring_anomalies",
-            )
-            log_monitoring_table_metrics(run_logger)
-        else:
-            print_section("Step 7 skipped: monitoring PostgreSQL publication")
-            log_skipped_step(
-                run_logger,
-                step_name="load_monitoring_anomalies",
-                reason="--skip-monitoring was supplied",
-            )
+            if not args.skip_final:
+                log_final_table_metrics(run_logger)
+            if not args.skip_load_prelim:
+                log_preliminary_table_metrics(run_logger)
+            if not args.skip_monitoring:
+                log_monitoring_table_metrics(run_logger)
 
         print_section("Daily pipeline completed successfully")
 
