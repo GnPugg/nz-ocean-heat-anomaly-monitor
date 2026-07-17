@@ -29,7 +29,7 @@ RUN python -m pip install --upgrade pip \
 
 COPY . .
 
-RUN pip install --no-deps . \
+RUN pip install --no-deps -e . \
     && groupadd --system appuser \
     && useradd --system --gid appuser --create-home appuser \
     && mkdir -p /app/data/raw /app/data/processed /app/logs \
