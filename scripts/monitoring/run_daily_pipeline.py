@@ -275,7 +275,7 @@ def log_postgres_table_metrics(
         )
 
 
-def log_final_output_metrics(run_logger: PipelineRunLogger | None) -> None:
+def log_final_file_metrics(run_logger: PipelineRunLogger | None) -> None:
     log_parquet_metrics(
         run_logger,
         step_name="final_anomalies",
@@ -290,6 +290,9 @@ def log_final_output_metrics(run_logger: PipelineRunLogger | None) -> None:
         max_date_column="end_date",
         count_columns=["severity_class", "is_active"],
     )
+
+
+def log_final_table_metrics(run_logger: PipelineRunLogger | None) -> None:
     log_postgres_table_metrics(
         run_logger,
         step_name="load_final_anomalies",
@@ -363,16 +366,19 @@ def log_preliminary_table_metrics(run_logger: PipelineRunLogger | None) -> None:
     )
 
 
-def log_monitoring_metrics(run_logger: PipelineRunLogger | None) -> None:
+def log_monitoring_file_metrics(run_logger: PipelineRunLogger | None) -> None:
     log_parquet_metrics(
         run_logger,
-        step_name="build_and_load_monitoring_anomalies",
+        step_name="build_monitoring_anomalies",
         path=MONITORING_ANOMALIES_FILE,
         count_columns=["data_product", "is_provisional", "status_label"],
     )
+
+
+def log_monitoring_table_metrics(run_logger: PipelineRunLogger | None) -> None:
     log_postgres_table_metrics(
         run_logger,
-        step_name="build_and_load_monitoring_anomalies",
+        step_name="load_monitoring_anomalies",
         schema_name="analytics",
         table_name="region_daily_anomalies_monitoring",
         min_date_column="date",
@@ -483,45 +489,96 @@ def main() -> None:
         print_section("Starting full daily pipeline")
 
         if not args.skip_final:
-            print_section(
-                "Step 1: Final daily append + final anomalies/events + final database load"
-            )
+            print_section("Step 1: Build final OISST outputs")
             run_script(
                 MONITORING_DIR / "run_daily_append.py",
+                extra_args=["--skip-load"],
                 run_logger=run_logger,
-                step_name="final_daily_append",
+                step_name="build_final_outputs",
             )
-            log_final_output_metrics(run_logger)
+            log_final_file_metrics(run_logger)
         else:
-            print_section("Step 1 skipped: final daily append")
+            print_section("Step 1 skipped: final output build")
             log_skipped_step(
                 run_logger,
-                step_name="final_daily_append",
+                step_name="build_final_outputs",
                 reason="--skip-final was supplied",
             )
 
         if not args.skip_prelim:
-            print_section(
-                "Step 2: Preliminary SST update + preliminary anomalies/events"
-            )
-
+            print_section("Step 2: Build preliminary OISST outputs")
             run_script(
                 MONITORING_DIR / "run_preliminary_update.py",
                 extra_args=build_prelim_args(args),
                 run_logger=run_logger,
-                step_name="preliminary_update",
+                step_name="build_preliminary_outputs",
             )
             log_preliminary_file_metrics(run_logger)
         else:
-            print_section("Step 2 skipped: preliminary update")
+            print_section("Step 2 skipped: preliminary output build")
             log_skipped_step(
                 run_logger,
-                step_name="preliminary_update",
+                step_name="build_preliminary_outputs",
                 reason="--skip-prelim was supplied",
             )
 
+        if not args.skip_monitoring:
+            print_section("Step 3: Build combined monitoring anomalies output")
+            run_script(
+                MONITORING_DIR / "build_and_load_monitoring_anomalies.py",
+                extra_args=["--build-only"],
+                run_logger=run_logger,
+                step_name="build_monitoring_anomalies",
+            )
+            log_monitoring_file_metrics(run_logger)
+        else:
+            print_section("Step 3 skipped: monitoring output build")
+            log_skipped_step(
+                run_logger,
+                step_name="build_monitoring_anomalies",
+                reason="--skip-monitoring was supplied",
+            )
+
+        if not args.skip_validate:
+            print_section("Step 4: Validate all generated outputs")
+            validation_args: list[str] = []
+            if args.skip_prelim and args.skip_load_prelim and args.skip_monitoring:
+                validation_args.append("--skip-preliminary")
+            if args.skip_monitoring:
+                validation_args.append("--skip-monitoring")
+
+            run_script(
+                MAINTENANCE_DIR / "validate_outputs.py",
+                extra_args=validation_args,
+                run_logger=run_logger,
+                step_name="validate_outputs",
+            )
+        else:
+            print_section("Step 4 skipped: validation")
+            log_skipped_step(
+                run_logger,
+                step_name="validate_outputs",
+                reason="--skip-validate was supplied",
+            )
+
+        if not args.skip_final:
+            print_section("Step 5: Publish validated final outputs to PostgreSQL")
+            run_module(
+                "nzheat.load.load_postgres",
+                run_logger=run_logger,
+                step_name="load_final_postgres",
+            )
+            log_final_table_metrics(run_logger)
+        else:
+            print_section("Step 5 skipped: final PostgreSQL publication")
+            log_skipped_step(
+                run_logger,
+                step_name="load_final_postgres",
+                reason="--skip-final was supplied",
+            )
+
         if not args.skip_load_prelim:
-            print_section("Step 3: Load preliminary outputs to PostgreSQL")
+            print_section("Step 6: Publish validated preliminary outputs to PostgreSQL")
             run_module(
                 "nzheat.load.load_preliminary_postgres",
                 run_logger=run_logger,
@@ -529,7 +586,7 @@ def main() -> None:
             )
             log_preliminary_table_metrics(run_logger)
         else:
-            print_section("Step 3 skipped: preliminary PostgreSQL load")
+            print_section("Step 6 skipped: preliminary PostgreSQL publication")
             log_skipped_step(
                 run_logger,
                 step_name="load_preliminary_postgres",
@@ -537,34 +594,20 @@ def main() -> None:
             )
 
         if not args.skip_monitoring:
-            print_section("Step 4: Build and load combined monitoring anomalies table")
+            print_section("Step 7: Publish validated monitoring output to PostgreSQL")
             run_script(
                 MONITORING_DIR / "build_and_load_monitoring_anomalies.py",
+                extra_args=["--load-only"],
                 run_logger=run_logger,
-                step_name="build_and_load_monitoring_anomalies",
+                step_name="load_monitoring_anomalies",
             )
-            log_monitoring_metrics(run_logger)
+            log_monitoring_table_metrics(run_logger)
         else:
-            print_section("Step 4 skipped: monitoring anomalies table")
+            print_section("Step 7 skipped: monitoring PostgreSQL publication")
             log_skipped_step(
                 run_logger,
-                step_name="build_and_load_monitoring_anomalies",
+                step_name="load_monitoring_anomalies",
                 reason="--skip-monitoring was supplied",
-            )
-
-        if not args.skip_validate:
-            print_section("Step 5: Validate processed outputs")
-            run_script(
-                MAINTENANCE_DIR / "validate_outputs.py",
-                run_logger=run_logger,
-                step_name="validate_outputs",
-            )
-        else:
-            print_section("Step 5 skipped: validation")
-            log_skipped_step(
-                run_logger,
-                step_name="validate_outputs",
-                reason="--skip-validate was supplied",
             )
 
         print_section("Daily pipeline completed successfully")
