@@ -4,13 +4,14 @@ import argparse
 from pathlib import Path
 
 import pandas as pd
+from sqlalchemy import text
 
 from nzheat.load.load_postgres import (
     create_db_engine,
     get_database_url,
     load_dataframe_to_table,
-    normalize_dataframe_types,
 )
+from nzheat.load.publish_all_postgres import prepare_monitoring_table
 from nzheat.utils.paths import find_project_root
 
 PROJECT_ROOT = find_project_root()
@@ -93,17 +94,20 @@ def load_monitoring_output(
     if not output_file.exists():
         raise FileNotFoundError(f"Missing monitoring anomalies file: {output_file}")
 
-    combined = pd.read_parquet(output_file)
+    db_df = prepare_monitoring_table(output_file)
     engine = create_db_engine(get_database_url(database_url))
-    db_df = normalize_dataframe_types(TABLE_NAME, combined)
 
-    load_dataframe_to_table(
-        engine,
-        db_df,
-        schema_name=SCHEMA_NAME,
-        table_name=TABLE_NAME,
-        if_exists="replace",
-    )
+    with engine.begin() as connection:
+        connection.execute(
+            text(f"TRUNCATE TABLE {SCHEMA_NAME}.{TABLE_NAME} CASCADE;")
+        )
+        load_dataframe_to_table(
+            connection,
+            db_df,
+            schema_name=SCHEMA_NAME,
+            table_name=TABLE_NAME,
+            if_exists="append",
+        )
 
     print(f"\nLoaded {len(db_df):,} rows into {SCHEMA_NAME}.{TABLE_NAME}")
 

@@ -34,6 +34,16 @@ ON analytics.heat_events_prelim(is_active);
 CREATE INDEX IF NOT EXISTS idx_heat_events_prelim_dates
 ON analytics.heat_events_prelim(start_date, end_date);
 
+
+CREATE INDEX IF NOT EXISTS idx_monitoring_anomalies_date
+ON analytics.region_daily_anomalies_monitoring(date);
+
+CREATE INDEX IF NOT EXISTS idx_monitoring_anomalies_region_date
+ON analytics.region_daily_anomalies_monitoring(region_id, date);
+
+CREATE INDEX IF NOT EXISTS idx_monitoring_anomalies_product
+ON analytics.region_daily_anomalies_monitoring(data_product, is_provisional);
+
 CREATE INDEX IF NOT EXISTS idx_pipeline_runs_pipeline_name
 ON meta.pipeline_runs (pipeline_name);
 

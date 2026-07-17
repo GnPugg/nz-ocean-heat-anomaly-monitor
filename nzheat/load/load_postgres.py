@@ -8,7 +8,7 @@ from urllib.parse import quote_plus
 from dotenv import load_dotenv
 import pandas as pd
 from sqlalchemy import create_engine, text
-from sqlalchemy.engine import Engine
+from sqlalchemy.engine import Connection, Engine
 
 DEFAULT_REGIONS_FILE = Path("assets/regions/nz_coastal_regions.geojson")
 DEFAULT_REGION_DAILY_SST_FILE = Path("data/processed/region_daily_sst_history.parquet")
@@ -294,7 +294,7 @@ def truncate_table(engine: Engine, schema_name: str, table_name: str) -> None:
 
 
 def load_dataframe_to_table(
-    engine: Engine,
+    engine: Engine | Connection,
     df: pd.DataFrame,
     *,
     schema_name: str,

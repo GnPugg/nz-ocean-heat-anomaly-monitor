@@ -79,13 +79,7 @@ def test_daily_pipeline_validates_before_any_publication(monkeypatch):
             ("--build-only",),
         ),
         ("script", "validate_outputs.py", ()),
-        ("module", "nzheat.load.load_postgres", ()),
-        ("module", "nzheat.load.load_preliminary_postgres", ()),
-        (
-            "script",
-            "build_and_load_monitoring_anomalies.py",
-            ("--load-only",),
-        ),
+        ("module", "nzheat.load.publish_all_postgres", ()),
     ]
 
     validation_index = next(
@@ -94,7 +88,7 @@ def test_daily_pipeline_validates_before_any_publication(monkeypatch):
     publication_indexes = [
         index
         for index, call in enumerate(calls)
-        if call[0] == "module" or call[2] == ("--load-only",)
+        if call[1] == "nzheat.load.publish_all_postgres"
     ]
 
     assert publication_indexes
