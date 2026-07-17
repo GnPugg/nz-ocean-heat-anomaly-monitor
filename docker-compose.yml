@@ -1,7 +1,6 @@
 services:
   postgres:
     image: postgres:16
-    container_name: nzheat_postgres
     restart: unless-stopped
 
     environment:
@@ -22,12 +21,10 @@ services:
       timeout: 5s
       retries: 5
 
-  app:
+  test:
     build:
       context: .
       dockerfile: Dockerfile
-
-    container_name: nzheat_app
 
     depends_on:
       postgres:
@@ -43,10 +40,36 @@ services:
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
-      - ./assets:/app/assets
-      - ./docs:/app/docs
+      - ./assets:/app/assets:ro
+      - ./docs:/app/docs:ro
 
     command: ["python", "-m", "pytest", "-q"]
+
+  pipeline:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-nzheat}
+      DB_USER: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./assets:/app/assets:ro
+
+    command: ["python", "scripts/monitoring/run_daily_pipeline.py"]
+
+    profiles:
+      - pipeline
 
 volumes:
   nzheat_postgres_data:

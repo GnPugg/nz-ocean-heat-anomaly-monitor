@@ -4,6 +4,7 @@
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue)
 ![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)
 ![Pytest](https://img.shields.io/badge/pytest-tested-green)
+[![CI](https://github.com/GnPugg/nz-ocean-heat-anomaly-monitor/actions/workflows/ci.yml/badge.svg)](https://github.com/GnPugg/nz-ocean-heat-anomaly-monitor/actions/workflows/ci.yml)
 ![Power BI](https://img.shields.io/badge/Power_BI-dashboard-yellow)
 
 An end-to-end data engineering project that ingests daily **NOAA Optimum Interpolation Sea Surface Temperature (OISST)** observations, performs geospatial aggregation and anomaly detection, stores analytical outputs in PostgreSQL, and serves interactive monitoring dashboards through Power BI.
