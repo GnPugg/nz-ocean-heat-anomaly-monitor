@@ -118,13 +118,6 @@ def test_build_prelim_event_input_keeps_history_and_prefers_preliminary_overlap(
     assert not result.duplicated(["date", "region_id"]).any()
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "The preliminary anomaly workflow does not yet combine recent final SST "
-        "history with preliminary SST before calculating rolling metrics."
-    ),
-)
 def test_preliminary_anomaly_input_has_30_day_history_context(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

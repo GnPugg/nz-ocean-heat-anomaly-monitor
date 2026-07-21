@@ -44,8 +44,19 @@ PRELIM_EVENTS_FILE = (
 
 CLIMATOLOGY_FILE = PROJECT_ROOT / "data" / "processed" / "region_climatology.parquet"
 
+FINAL_SST_FILE = (
+    PROJECT_ROOT / "data" / "processed" / "region_daily_sst_history.parquet"
+)
+
 FINAL_ANOMALIES_FILE = (
     PROJECT_ROOT / "data" / "processed" / "region_daily_anomalies.parquet"
+)
+
+PRELIM_ANOMALY_INPUT_FILE = (
+    PROJECT_ROOT
+    / "data"
+    / "processed"
+    / "region_daily_sst_anomaly_input_prelim.parquet"
 )
 
 PRELIM_EVENT_INPUT_FILE = (
@@ -187,6 +198,97 @@ def save_prelim_sst(df: pd.DataFrame, output_path: Path) -> None:
     print("Date range:", df["date"].min().date(), "to", df["date"].max().date())
 
 
+def build_prelim_anomaly_input(
+    final_sst_path: Path,
+    prelim_sst_path: Path,
+    output_path: Path,
+    *,
+    history_days: int = 30,
+) -> tuple[pd.Timestamp, pd.Timestamp]:
+    """Build SST input with enough final history for preliminary rolling metrics.
+
+    Final rows are retained only before the preliminary period. Preliminary rows
+    therefore take priority for every date in the provisional window.
+    """
+    if history_days < 29:
+        raise ValueError("history_days must be at least 29")
+
+    if not final_sst_path.exists():
+        raise FileNotFoundError(
+            f"Final SST history not found: {final_sst_path}. "
+            "It is required to calculate complete preliminary rolling metrics."
+        )
+
+    prelim_df = pd.read_parquet(prelim_sst_path).copy()
+    if prelim_df.empty:
+        raise RuntimeError("Preliminary SST input is empty.")
+
+    prelim_df["date"] = pd.to_datetime(prelim_df["date"])
+    prelim_start = prelim_df["date"].min()
+    prelim_end = prelim_df["date"].max()
+
+    final_df = pd.read_parquet(final_sst_path).copy()
+    final_df["date"] = pd.to_datetime(final_df["date"])
+
+    context_start = prelim_start - pd.Timedelta(days=history_days)
+    final_context = final_df.loc[
+        (final_df["date"] >= context_start)
+        & (final_df["date"] < prelim_start)
+    ].copy()
+
+    prelim_regions = pd.Index(prelim_df["region_id"].dropna().unique())
+    context_counts = (
+        final_context.groupby("region_id")["date"]
+        .nunique()
+        .reindex(prelim_regions, fill_value=0)
+    )
+    insufficient = context_counts.loc[context_counts < 29]
+    if not insufficient.empty:
+        details = ", ".join(
+            f"{region_id}: {int(count)} days"
+            for region_id, count in insufficient.items()
+        )
+        raise RuntimeError(
+            "Insufficient final SST history before the preliminary period. "
+            f"At least 29 prior daily observations are required per region; {details}."
+        )
+
+    combined_df = pd.concat([final_context, prelim_df], ignore_index=True)
+    combined_df = (
+        combined_df.drop_duplicates(subset=["date", "region_id"], keep="last")
+        .sort_values(["region_id", "date"])
+        .reset_index(drop=True)
+    )
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    combined_df.to_parquet(output_path, index=False)
+
+    print(f"Saved preliminary anomaly input rows: {len(combined_df):,}")
+    print(
+        "Anomaly input date range: "
+        f"{combined_df['date'].min().date()} to {combined_df['date'].max().date()}"
+    )
+
+    return prelim_start, prelim_end
+
+
+def keep_preliminary_anomaly_period(
+    path: Path,
+    prelim_start: pd.Timestamp,
+    prelim_end: pd.Timestamp,
+) -> None:
+    """Trim anomaly output back to the preliminary date window."""
+    df = pd.read_parquet(path).copy()
+    df["date"] = pd.to_datetime(df["date"])
+    df = df.loc[df["date"].between(prelim_start, prelim_end)].copy()
+
+    if df.empty:
+        raise RuntimeError("No preliminary anomaly rows remain after date filtering.")
+
+    df = df.sort_values(["date", "region_id"]).reset_index(drop=True)
+    df.to_parquet(path, index=False)
+
+
 def build_prelim_event_input(
     final_anomalies_path: Path,
     prelim_anomalies_path: Path,
@@ -293,13 +395,19 @@ def main(
 
     save_prelim_sst(prelim_sst_df, PRELIM_SST_FILE)
 
+    prelim_start, prelim_end = build_prelim_anomaly_input(
+        final_sst_path=FINAL_SST_FILE,
+        prelim_sst_path=PRELIM_SST_FILE,
+        output_path=PRELIM_ANOMALY_INPUT_FILE,
+    )
+
     run_command(
         [
             sys.executable,
             "-m",
             "nzheat.analytics.anomalies",
             "--history-file",
-            str(PRELIM_SST_FILE),
+            str(PRELIM_ANOMALY_INPUT_FILE),
             "--climatology-file",
             str(CLIMATOLOGY_FILE),
             "--output-file",
@@ -307,9 +415,14 @@ def main(
         ]
     )
 
+    keep_preliminary_anomaly_period(
+        PRELIM_ANOMALIES_FILE,
+        prelim_start=prelim_start,
+        prelim_end=prelim_end,
+    )
     add_prelim_metadata_to_parquet(PRELIM_ANOMALIES_FILE)
 
-    prelim_start, prelim_end = build_prelim_event_input(
+    build_prelim_event_input(
         final_anomalies_path=FINAL_ANOMALIES_FILE,
         prelim_anomalies_path=PRELIM_ANOMALIES_FILE,
         output_path=PRELIM_EVENT_INPUT_FILE,
