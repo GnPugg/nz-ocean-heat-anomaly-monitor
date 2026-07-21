@@ -339,6 +339,41 @@ def build_prelim_event_input(
     return prelim_start, prelim_end
 
 
+def keep_preliminary_event_period(
+    path: Path,
+    prelim_start: pd.Timestamp,
+    prelim_end: pd.Timestamp,
+) -> None:
+    """Keep only events that overlap the preliminary date window.
+
+    Events may start in final history and continue into the preliminary period,
+    so overlap is determined using both start_date and end_date. Historical
+    events that ended before the preliminary period are removed.
+    """
+    df = pd.read_parquet(path).copy()
+
+    if df.empty:
+        df.to_parquet(path, index=False)
+        return
+
+    required_columns = {"start_date", "end_date"}
+    missing_columns = required_columns.difference(df.columns)
+    if missing_columns:
+        missing = ", ".join(sorted(missing_columns))
+        raise ValueError(f"Event output is missing required columns: {missing}")
+
+    df["start_date"] = pd.to_datetime(df["start_date"])
+    df["end_date"] = pd.to_datetime(df["end_date"])
+
+    overlaps_preliminary_period = (
+        (df["end_date"] >= prelim_start)
+        & (df["start_date"] <= prelim_end)
+    )
+    df = df.loc[overlaps_preliminary_period].copy()
+    df = df.sort_values(["region_id", "start_date"]).reset_index(drop=True)
+    df.to_parquet(path, index=False)
+
+
 def add_prelim_metadata_to_parquet(path: Path) -> None:
     df = pd.read_parquet(path)
     df["data_product"] = "preliminary"
@@ -441,6 +476,11 @@ def main(
     )
 
     if PRELIM_EVENTS_FILE.exists():
+        keep_preliminary_event_period(
+            PRELIM_EVENTS_FILE,
+            prelim_start=prelim_start,
+            prelim_end=prelim_end,
+        )
         add_prelim_metadata_to_parquet(PRELIM_EVENTS_FILE)
 
     print("\nPreliminary update complete.")

@@ -178,3 +178,90 @@ def test_preliminary_anomaly_input_has_30_day_history_context(
     assert history_before_prelim["date"].nunique() >= 29
     assert result.loc[result["date"] >= prelim_start, "source"].eq("preliminary").all()
     assert not result.duplicated(["date", "region_id"]).any()
+
+
+def test_keep_preliminary_event_period_removes_old_events_and_keeps_overlaps(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    module = load_preliminary_module()
+
+    events_path = tmp_path / "events.parquet"
+    events_path.touch()
+
+    parquet_frames = {
+        events_path: pd.DataFrame(
+            {
+                "event_id": ["old", "overlap", "inside", "future"],
+                "region_id": [1, 1, 2, 2],
+                "start_date": pd.to_datetime(
+                    ["2026-01-01", "2026-01-08", "2026-01-12", "2026-01-21"]
+                ),
+                "end_date": pd.to_datetime(
+                    ["2026-01-05", "2026-01-12", "2026-01-15", "2026-01-25"]
+                ),
+            }
+        )
+    }
+
+    monkeypatch.setattr(
+        pd,
+        "read_parquet",
+        lambda path: parquet_frames[Path(path)].copy(),
+    )
+    monkeypatch.setattr(
+        pd.DataFrame,
+        "to_parquet",
+        lambda self, path, index=False: parquet_frames.__setitem__(
+            Path(path), self.copy()
+        ),
+    )
+
+    module.keep_preliminary_event_period(
+        events_path,
+        prelim_start=pd.Timestamp("2026-01-10"),
+        prelim_end=pd.Timestamp("2026-01-20"),
+    )
+
+    result = parquet_frames[events_path]
+
+    assert result["event_id"].tolist() == ["overlap", "inside"]
+
+
+def test_keep_preliminary_event_period_preserves_empty_event_schema(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    module = load_preliminary_module()
+
+    events_path = tmp_path / "events.parquet"
+    events_path.touch()
+
+    empty_events = pd.DataFrame(
+        columns=["event_id", "region_id", "start_date", "end_date"]
+    )
+    parquet_frames = {events_path: empty_events}
+
+    monkeypatch.setattr(
+        pd,
+        "read_parquet",
+        lambda path: parquet_frames[Path(path)].copy(),
+    )
+    monkeypatch.setattr(
+        pd.DataFrame,
+        "to_parquet",
+        lambda self, path, index=False: parquet_frames.__setitem__(
+            Path(path), self.copy()
+        ),
+    )
+
+    module.keep_preliminary_event_period(
+        events_path,
+        prelim_start=pd.Timestamp("2026-01-10"),
+        prelim_end=pd.Timestamp("2026-01-20"),
+    )
+
+    result = parquet_frames[events_path]
+
+    assert result.empty
+    assert result.columns.tolist() == empty_events.columns.tolist()
