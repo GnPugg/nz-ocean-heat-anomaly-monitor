@@ -260,4 +260,3 @@ def test_apply_oisst_ocean_mask_rejects_unreadable_file(
 
     with pytest.raises(ValueError, match="Could not open OISST mask file"):
         apply_oisst_ocean_mask(grid, bad_path)
-
