@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import geopandas as gpd
 import numpy as np
+import pytest
+import xarray as xr
 from shapely.geometry import box
 
 from nzheat.regions.coastal_grid import (
     CoastalGridConfig,
     aligned_oisst_centres,
+    apply_oisst_ocean_mask,
     build_oisst_grid,
     classify_coastal_cells,
     split_by_mainland_proximity,
@@ -164,3 +167,97 @@ def test_write_outputs_uses_requested_distance_in_filename(tmp_path) -> None:
         "candidate_coastal_cells_75km.geojson"
     )
     assert paths["included_cells_geojson"].exists()
+
+
+def _synthetic_oisst_dataset() -> xr.Dataset:
+    return xr.Dataset(
+        {
+            "sst": (
+                ("time", "zlev", "lat", "lon"),
+                np.array([[[[15.0, np.nan], [16.0, 17.0]]]], dtype=np.float32),
+            )
+        },
+        coords={
+            "time": [0],
+            "zlev": [0.0],
+            "lat": [-41.125, -40.875],
+            "lon": [173.875, 174.125],
+        },
+    )
+
+
+def test_apply_oisst_ocean_mask_excludes_masked_and_missing_cells(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    mask_path = tmp_path / "oisst-mask.nc"
+    mask_path.touch()
+    monkeypatch.setattr(
+        "nzheat.regions.coastal_grid.xr.open_dataset",
+        lambda *args, **kwargs: _synthetic_oisst_dataset(),
+    )
+
+    grid = gpd.GeoDataFrame(
+        {
+            "cell_id": ["valid", "masked", "missing-coordinate"],
+            "longitude": [173.875, 174.125, 174.375],
+            "latitude": [-41.125, -41.125, -41.125],
+            "is_land": [False, False, False],
+            "distance_to_land_km": [1.0, 2.0, 3.0],
+            "included_in_coastal_domain": [True, True, True],
+        },
+        geometry=gpd.points_from_xy(
+            [173.875, 174.125, 174.375],
+            [-41.125, -41.125, -41.125],
+        ),
+        crs="EPSG:4326",
+    )
+
+    result = apply_oisst_ocean_mask(grid, mask_path).set_index("cell_id")
+
+    assert bool(result.loc["valid", "oisst_coordinate_exists"])
+    assert bool(result.loc["valid", "oisst_ocean_cell"])
+    assert bool(result.loc["valid", "included_in_coastal_domain"])
+
+    assert bool(result.loc["masked", "oisst_coordinate_exists"])
+    assert not bool(result.loc["masked", "oisst_ocean_cell"])
+    assert not bool(result.loc["masked", "included_in_coastal_domain"])
+
+    assert not bool(result.loc["missing-coordinate", "oisst_coordinate_exists"])
+    assert not bool(result.loc["missing-coordinate", "oisst_ocean_cell"])
+    assert not bool(
+        result.loc["missing-coordinate", "included_in_coastal_domain"]
+    )
+
+
+def test_apply_oisst_ocean_mask_rejects_unreadable_file(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    bad_path = tmp_path / "not-netcdf.nc"
+    bad_path.write_text("not a NetCDF file", encoding="utf-8")
+
+    def fail_open(*args, **kwargs):
+        raise OSError("unknown file format")
+
+    monkeypatch.setattr(
+        "nzheat.regions.coastal_grid.xr.open_dataset",
+        fail_open,
+    )
+
+    grid = gpd.GeoDataFrame(
+        {
+            "cell_id": ["candidate"],
+            "longitude": [173.875],
+            "latitude": [-41.125],
+            "is_land": [False],
+            "distance_to_land_km": [1.0],
+            "included_in_coastal_domain": [True],
+        },
+        geometry=gpd.points_from_xy([173.875], [-41.125]),
+        crs="EPSG:4326",
+    )
+
+    with pytest.raises(ValueError, match="Could not open OISST mask file"):
+        apply_oisst_ocean_mask(grid, bad_path)
+

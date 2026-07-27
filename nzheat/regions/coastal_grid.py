@@ -8,6 +8,7 @@ from pathlib import Path
 import geopandas as gpd
 import numpy as np
 import pandas as pd
+import xarray as xr
 from shapely.geometry import box
 
 from nzheat.utils.paths import find_project_root
@@ -260,6 +261,82 @@ def classify_coastal_cells(
     return result
 
 
+
+def apply_oisst_ocean_mask(
+    classified_grid: gpd.GeoDataFrame,
+    oisst_mask_path: Path,
+) -> gpd.GeoDataFrame:
+    """Restrict candidate cells to coordinates with valid native OISST SST.
+
+    The coastline mask can classify a cell centre as ocean even when NOAA's
+    native OISST land/sea mask has no SST value there. The supplied daily OISST
+    file is therefore used as the authoritative final ocean-cell mask.
+    """
+    if not oisst_mask_path.exists():
+        raise FileNotFoundError(f"OISST mask file not found: {oisst_mask_path}")
+
+    try:
+        dataset = xr.open_dataset(oisst_mask_path, engine="netcdf4")
+    except Exception as exc:
+        raise ValueError(
+            f"Could not open OISST mask file {oisst_mask_path}: {exc}"
+        ) from exc
+
+    with dataset:
+        if "sst" not in dataset:
+            raise ValueError(
+                f"OISST mask file has no 'sst' variable: {oisst_mask_path}"
+            )
+        if "lon" not in dataset.coords or "lat" not in dataset.coords:
+            raise ValueError(
+                "OISST mask file must contain 'lon' and 'lat' coordinates."
+            )
+
+        sst = dataset["sst"]
+        extra_dims = [dim for dim in sst.dims if dim not in {"lat", "lon"}]
+        if extra_dims:
+            sst = sst.isel({dim: 0 for dim in extra_dims})
+        sst = sst.load()
+
+        lon_lookup = {
+            round(float(value), 3): index
+            for index, value in enumerate(dataset["lon"].values)
+        }
+        lat_lookup = {
+            round(float(value), 3): index
+            for index, value in enumerate(dataset["lat"].values)
+        }
+
+        coordinate_exists: list[bool] = []
+        ocean_cell: list[bool] = []
+
+        for row in classified_grid.itertuples(index=False):
+            lon = round(float(row.longitude) % 360.0, 3)
+            lat = round(float(row.latitude), 3)
+            lon_index = lon_lookup.get(lon)
+            lat_index = lat_lookup.get(lat)
+            exists = lon_index is not None and lat_index is not None
+            coordinate_exists.append(exists)
+
+            if not exists:
+                ocean_cell.append(False)
+                continue
+
+            value = float(
+                sst.isel(lon=lon_index, lat=lat_index).item()
+            )
+            ocean_cell.append(bool(np.isfinite(value)))
+
+    result = classified_grid.copy()
+    result["oisst_coordinate_exists"] = coordinate_exists
+    result["oisst_ocean_cell"] = ocean_cell
+    result["included_in_coastal_domain"] = (
+        result["included_in_coastal_domain"]
+        & result["oisst_coordinate_exists"]
+        & result["oisst_ocean_cell"]
+    )
+    return result
+
 def make_cell_polygons(cells: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     """Convert OISST grid centres to exact 0.25-degree cell polygons."""
     half_cell = GRID_SPACING_DEGREES / 2.0
@@ -334,8 +411,13 @@ def write_outputs(
         "latitude",
         "is_land",
         "distance_to_land_km",
-        "included_in_coastal_domain",
     ]
+    audit_columns.extend(
+        column
+        for column in ("oisst_coordinate_exists", "oisst_ocean_cell")
+        if column in classified_grid.columns
+    )
+    audit_columns.append("included_in_coastal_domain")
     classified_grid[audit_columns].sort_values(
         ["latitude", "longitude"]
     ).to_csv(output_paths["audit_csv"], index=False)
@@ -372,6 +454,15 @@ def parse_args() -> argparse.Namespace:
         default=project_root / "data/reference/regions/v2",
     )
     parser.add_argument("--max-distance-km", type=float, default=100.0)
+    parser.add_argument(
+        "--oisst-mask-file",
+        type=Path,
+        default=None,
+        help=(
+            "Optional readable OISST NetCDF file used to apply NOAA's native "
+            "ocean mask after coastline and distance classification."
+        ),
+    )
     parser.add_argument(
         "--max-nearby-island-distance-km",
         type=float,
@@ -411,6 +502,12 @@ def main() -> None:
         land=land,
         max_distance_km=config.max_distance_km,
     )
+    if args.oisst_mask_file is not None:
+        print(f"Applying native OISST ocean mask: {args.oisst_mask_file}")
+        classified = apply_oisst_ocean_mask(
+            classified,
+            args.oisst_mask_file,
+        )
     output_paths = write_land_previews(
         retained_land=land,
         excluded_remote_land=excluded_remote_land,
@@ -431,6 +528,15 @@ def main() -> None:
         "  included_coastal_ocean_centres: "
         f"{int(classified['included_in_coastal_domain'].sum()):,}"
     )
+    if "oisst_ocean_cell" in classified.columns:
+        print(
+            "  native_oisst_ocean_centres: "
+            f"{int(classified['oisst_ocean_cell'].sum()):,}"
+        )
+        print(
+            "  coastline_ocean_cells_masked_by_oisst: "
+            f"{int((~classified['is_land'] & ~classified['oisst_ocean_cell']).sum()):,}"
+        )
     print(
         "  excluded_offshore_centres: "
         f"{int((~classified['is_land'] & ~classified['included_in_coastal_domain']).sum()):,}"
