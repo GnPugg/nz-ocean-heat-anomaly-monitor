@@ -12,3 +12,5 @@ pyarrow==17.0.0
 netCDF4==1.7.2
 h5netcdf==1.4.1
 pytest==8.3.4
+scipy==1.16.0
+scikit-learn==1.9.0

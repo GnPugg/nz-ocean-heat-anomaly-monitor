@@ -33,3 +33,7 @@ Thumbs.db
 .RData
 
 daily_update.bat
+
+# Generated region-design artefacts
+data/reference/regions/
+outputs/
