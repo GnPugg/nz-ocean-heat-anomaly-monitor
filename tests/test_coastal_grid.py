@@ -12,6 +12,7 @@ from nzheat.regions.coastal_grid import (
     apply_oisst_ocean_mask,
     build_oisst_grid,
     classify_coastal_cells,
+    parse_args,
     split_by_mainland_proximity,
     split_remote_islands,
     write_outputs,
@@ -260,3 +261,20 @@ def test_apply_oisst_ocean_mask_rejects_unreadable_file(
 
     with pytest.raises(ValueError, match="Could not open OISST mask file"):
         apply_oisst_ocean_mask(grid, bad_path)
+
+
+def test_coastal_grid_config_defaults_to_75_km() -> None:
+    assert CoastalGridConfig().max_distance_km == 75.0
+
+
+def test_parse_args_requires_oisst_mask_file(
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.setattr("sys.argv", ["coastal-grid"])
+
+    with pytest.raises(SystemExit) as exc_info:
+        parse_args()
+
+    assert exc_info.value.code == 2
+    assert "--oisst-mask-file" in capsys.readouterr().err

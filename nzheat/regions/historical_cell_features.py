@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from pathlib import Path
 import argparse
@@ -134,7 +134,7 @@ def build_cell_features(
         data.groupby("cell_id")
         .agg(
             mean_sst_c=("sst_c", "mean"),
-            daily_sd_sst_c=("sst_c", "std"),
+            raw_sst_sd_c=("sst_c", "std"),
             minimum_sst_c=("sst_c", "min"),
             maximum_sst_c=("sst_c", "max"),
             observation_count=("sst_c", "count"),
@@ -159,6 +159,13 @@ def build_cell_features(
         f"mean_{name}_sst_c"
         for name in MONTH_NAMES.values()
     ]
+
+    seasonal_shape_columns = []
+
+    for name in MONTH_NAMES.values():
+        monthly_column = f"mean_{name}_sst_c"
+        shape_column = f"seasonal_shape_{name}_c"
+        seasonal_shape_columns.append(shape_column)
 
     missing_month_columns = [
         column
@@ -218,10 +225,55 @@ def build_cell_features(
         .reset_index()
     )
 
+    monthly["monthly_cycle_mean_sst_c"] = monthly[
+        monthly_columns
+    ].mean(axis=1)
+
+    for shape_column, monthly_column in zip(
+        seasonal_shape_columns,
+        monthly_columns,
+        strict=True,
+    ):
+        monthly[shape_column] = (
+            monthly[monthly_column]
+            - monthly["monthly_cycle_mean_sst_c"]
+        )
+
+    monthly = monthly.drop(columns="monthly_cycle_mean_sst_c")
+
+    monthly_climatology = (
+        data.groupby(["cell_id", "month"])["sst_c"]
+        .mean()
+        .rename("monthly_climatology_sst_c")
+        .reset_index()
+    )
+
+    deseasonalized = data.merge(
+        monthly_climatology,
+        on=["cell_id", "month"],
+        validate="many_to_one",
+    )
+    deseasonalized["monthly_anomaly_c"] = (
+        deseasonalized["sst_c"]
+        - deseasonalized["monthly_climatology_sst_c"]
+    )
+
+    daily_variability = (
+        deseasonalized.groupby("cell_id")["monthly_anomaly_c"]
+        .std()
+        .rename("deseasonalized_daily_sd_sst_c")
+        .reset_index()
+    )
+
     result = (
         coordinates
         .merge(overall, on="cell_id", validate="one_to_one")
         .merge(monthly, on="cell_id", validate="one_to_one")
+        .merge(
+            daily_variability,
+            on="cell_id",
+            validate="one_to_one",
+        )
         .merge(
             annual_variability,
             on="cell_id",

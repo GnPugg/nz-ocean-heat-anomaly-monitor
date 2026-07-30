@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "nz-ocean-heat-anomaly-monitor"
 version = "0.1.0"
 description = "NZ coastal ocean heat anomaly monitoring pipeline"
-requires-python = ">=3.10,<3.12"
+requires-python = ">=3.11,<3.12"
 
 dependencies = [
     "pandas",
@@ -20,7 +20,10 @@ dependencies = [
     "netcdf4",
     "h5netcdf",
     "shapely",
-    "numpy"
+    "numpy",
+    "urllib3",
+    "scipy",
+    "scikit-learn"
 ]
 
 [tool.setuptools.packages.find]

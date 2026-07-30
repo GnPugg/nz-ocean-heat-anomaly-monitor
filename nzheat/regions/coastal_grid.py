@@ -43,7 +43,7 @@ class CoastalGridConfig:
     max_lon: float = 180.0
     min_lat: float = -48.5
     max_lat: float = -33.0
-    max_distance_km: float = 100.0
+    max_distance_km: float = 75.0
     max_nearby_island_distance_km: float = DEFAULT_NEARBY_ISLAND_DISTANCE_KM
 
 
@@ -276,7 +276,7 @@ def apply_oisst_ocean_mask(
         raise FileNotFoundError(f"OISST mask file not found: {oisst_mask_path}")
 
     try:
-        dataset = xr.open_dataset(oisst_mask_path, engine="netcdf4")
+        dataset = xr.open_dataset(oisst_mask_path, engine="h5netcdf")
     except Exception as exc:
         raise ValueError(
             f"Could not open OISST mask file {oisst_mask_path}: {exc}"
@@ -453,13 +453,13 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=project_root / "data/reference/regions/v2",
     )
-    parser.add_argument("--max-distance-km", type=float, default=100.0)
+    parser.add_argument("--max-distance-km", type=float, default=75.0)
     parser.add_argument(
         "--oisst-mask-file",
         type=Path,
-        default=None,
+        required=True,
         help=(
-            "Optional readable OISST NetCDF file used to apply NOAA's native "
+            "Readable OISST NetCDF file used to apply NOAA's native "
             "ocean mask after coastline and distance classification."
         ),
     )

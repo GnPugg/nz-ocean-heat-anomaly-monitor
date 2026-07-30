@@ -54,8 +54,41 @@ def test_build_cell_features_creates_one_row_per_cell() -> None:
     assert cell_a["summer_mean_sst_c"] == pytest.approx(5.5)
     assert cell_a["winter_mean_sst_c"] == pytest.approx(7.5)
     assert cell_a["seasonal_amplitude_c"] == pytest.approx(11.0)
+    assert cell_a["raw_sst_sd_c"] > cell_a[
+        "deseasonalized_daily_sd_sst_c"
+    ]
+    assert cell_a["deseasonalized_daily_sd_sst_c"] == pytest.approx(
+        np.sqrt(6 / 23)
+    )
     assert cell_a["annual_mean_sd_sst_c"] == pytest.approx(
         np.sqrt(0.5)
+    )
+
+    seasonal_shape_columns = [
+        f"seasonal_shape_{month}_c"
+        for month in (
+            "jan",
+            "feb",
+            "mar",
+            "apr",
+            "may",
+            "jun",
+            "jul",
+            "aug",
+            "sep",
+            "oct",
+            "nov",
+            "dec",
+        )
+    ]
+
+    assert cell_a[seasonal_shape_columns].mean() == pytest.approx(0.0)
+    assert cell_a["seasonal_shape_jan_c"] == pytest.approx(-5.5)
+    assert cell_a["seasonal_shape_dec_c"] == pytest.approx(5.5)
+
+    np.testing.assert_allclose(
+        features.loc["cell-a", seasonal_shape_columns].astype(float),
+        features.loc["cell-b", seasonal_shape_columns].astype(float),
     )
 
 

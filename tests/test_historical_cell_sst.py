@@ -53,7 +53,7 @@ def _write_daily_oisst(
             "lon": [170.125, 170.375, 170.625],
         },
     )
-    dataset.to_netcdf(path, engine="netcdf4")
+    dataset.to_netcdf(path, engine="h5netcdf")
 
 
 def test_load_domain_cells_keeps_only_included_rows(tmp_path: Path) -> None:
@@ -136,6 +136,7 @@ def test_extract_year_writes_sorted_parquet(tmp_path: Path) -> None:
         raw_dir=raw_dir,
         domain_cells=domain,
         output_directory=output_directory,
+        require_complete_year=False,
     )
 
     output_file = output_directory / "cell_daily_sst_2001.parquet"
@@ -157,3 +158,158 @@ def test_extract_year_writes_sorted_parquet(tmp_path: Path) -> None:
         "keep-a",
         "keep-b",
     ]
+
+
+
+def test_extract_year_requires_complete_calendar_year_by_default(
+    tmp_path: Path,
+) -> None:
+    audit_path = tmp_path / "audit.csv"
+    raw_dir = tmp_path / "raw"
+    output_directory = tmp_path / "output"
+    raw_dir.mkdir()
+
+    _write_domain_audit(audit_path)
+    _write_daily_oisst(
+        raw_dir / "oisst_2001-01-01.nc",
+        date="2001-01-01",
+    )
+    _write_daily_oisst(
+        raw_dir / "oisst_2001-01-02.nc",
+        date="2001-01-02",
+    )
+
+    domain = load_domain_cells(audit_path)
+
+    with pytest.raises(ValueError, match="not a complete calendar year"):
+        extract_year(
+            year=2001,
+            raw_dir=raw_dir,
+            domain_cells=domain,
+            output_directory=output_directory,
+        )
+
+
+def test_extract_year_rejects_invalid_existing_output(
+    tmp_path: Path,
+) -> None:
+    audit_path = tmp_path / "audit.csv"
+    raw_dir = tmp_path / "raw"
+    output_directory = tmp_path / "output"
+    raw_dir.mkdir()
+    output_directory.mkdir()
+
+    _write_domain_audit(audit_path)
+    domain = load_domain_cells(audit_path)
+
+    existing = pd.DataFrame(
+        {
+            "date": [
+                pd.Timestamp("2001-01-01"),
+                pd.Timestamp("2001-01-01"),
+                pd.Timestamp("2001-01-02"),
+            ],
+            "cell_id": ["keep-a", "keep-b", "keep-a"],
+            "longitude": [170.125, 170.625, 170.125],
+            "latitude": [-40.125, -40.625, -40.125],
+            "sst_c": [15.0, 16.0, 15.5],
+        }
+    )
+    existing.to_parquet(
+        output_directory / "cell_daily_sst_2001.parquet",
+        index=False,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="does not contain exactly 2 cells for every date",
+    ):
+        extract_year(
+            year=2001,
+            raw_dir=raw_dir,
+            domain_cells=domain,
+            output_directory=output_directory,
+            require_complete_year=False,
+        )
+
+def test_extract_year_rejects_existing_output_missing_sst(
+    tmp_path: Path,
+) -> None:
+    audit_path = tmp_path / "audit.csv"
+    raw_dir = tmp_path / "raw"
+    output_directory = tmp_path / "output"
+    raw_dir.mkdir()
+    output_directory.mkdir()
+
+    _write_domain_audit(audit_path)
+    domain = load_domain_cells(audit_path)
+
+    existing = pd.DataFrame(
+        {
+            "date": [
+                pd.Timestamp("2001-01-01"),
+                pd.Timestamp("2001-01-01"),
+            ],
+            "cell_id": ["keep-a", "keep-b"],
+            "longitude": [170.125, 170.625],
+            "latitude": [-40.125, -40.625],
+        }
+    )
+    existing.to_parquet(
+        output_directory / "cell_daily_sst_2001.parquet",
+        index=False,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="missing required columns.*sst_c",
+    ):
+        extract_year(
+            year=2001,
+            raw_dir=raw_dir,
+            domain_cells=domain,
+            output_directory=output_directory,
+            require_complete_year=False,
+        )
+
+
+def test_extract_year_rejects_existing_coordinate_mismatch(
+    tmp_path: Path,
+) -> None:
+    audit_path = tmp_path / "audit.csv"
+    raw_dir = tmp_path / "raw"
+    output_directory = tmp_path / "output"
+    raw_dir.mkdir()
+    output_directory.mkdir()
+
+    _write_domain_audit(audit_path)
+    domain = load_domain_cells(audit_path)
+
+    existing = pd.DataFrame(
+        {
+            "date": [
+                pd.Timestamp("2001-01-01"),
+                pd.Timestamp("2001-01-01"),
+            ],
+            "cell_id": ["keep-a", "keep-b"],
+            "longitude": [170.125, 171.625],
+            "latitude": [-40.125, -40.625],
+            "sst_c": [15.0, 16.0],
+        }
+    )
+    existing.to_parquet(
+        output_directory / "cell_daily_sst_2001.parquet",
+        index=False,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="coordinates that do not match",
+    ):
+        extract_year(
+            year=2001,
+            raw_dir=raw_dir,
+            domain_cells=domain,
+            output_directory=output_directory,
+            require_complete_year=False,
+        )

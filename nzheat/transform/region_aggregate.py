@@ -60,7 +60,7 @@ def aggregate_region_daily_sst(df: pd.DataFrame) -> pd.DataFrame:
     )
 
     # region_id often comes back as float after joins if unmatched rows existed.
-    aggregated["region_id"] = aggregated["region_id"].astype(int)
+    aggregated["region_id"] = aggregated["region_id"].astype("int64")
 
     return aggregated
 

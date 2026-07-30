@@ -1,256 +1,287 @@
-﻿# NZ Coastal Ocean Heat Anomaly Monitor
+# NZ Coastal Ocean Heat Anomaly Monitor
 
-An end-to-end environmental data engineering project for monitoring sea surface temperature (SST) anomalies around New Zealand coastal regions using NOAA OISST data.
+![Python](https://img.shields.io/badge/Python-3.11-blue)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue)
+![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)
+![Pytest](https://img.shields.io/badge/pytest-tested-green)
+[![CI](https://github.com/GnPugg/nz-ocean-heat-anomaly-monitor/actions/workflows/ci.yml/badge.svg)](https://github.com/GnPugg/nz-ocean-heat-anomaly-monitor/actions/workflows/ci.yml)
+![Power BI](https://img.shields.io/badge/Power_BI-dashboard-yellow)
 
-The project downloads daily SST data, aggregates it into six New Zealand coastal regions, calculates a fixed 1991–2020 climatology baseline, detects sustained warm events, stores final and preliminary monitoring outputs in PostgreSQL, and visualises the results in Power BI.
+An end-to-end data engineering project that ingests daily **NOAA Optimum Interpolation Sea Surface Temperature (OISST)** observations, performs geospatial aggregation and anomaly detection, stores analytical outputs in PostgreSQL, and serves interactive monitoring dashboards through Power BI.
 
-The purpose of this project is to demonstrate the data pipeline, modelling workflow, and dashboard communication layer rather than to provide an authoritative climate forecast.
+The project demonstrates how an environmental monitoring workflow can be designed as a reproducible data pipeline using containerised execution, automated validation, and analytical database modelling.
+
+> **Purpose**
+>
+> This project is intended to demonstrate data engineering concepts and analytical pipeline design. It is **not** intended to provide an operational climate forecasting service.
+
+---
+
+## Contents
+
+- [What this project demonstrates](#what-this-project-demonstrates)
+- [System Architecture](#system-architecture)
+- [Scientific Workflow](#scientific-workflow)
+- [Dashboard](#dashboard)
+- [Technology Stack](#technology-stack)
+- [Key Features](#key-features)
+- [Review Quick Start](#review-quick-start)
+- [Project Overview](#project-overview)
+- [Data Source](#data-source)
+- [Technical Reference](#technical-reference)
+- [Power BI Dashboard](#power-bi-dashboard)
+- [Analytical Logic](#analytical-logic)
 
 ---
 
 ## What this project demonstrates
 
-- Incremental ingestion of daily NOAA OISST data
-- Geospatial aggregation with xarray and GeoPandas
-- Fixed-baseline anomaly and heat-event calculations
-- PostgreSQL analytical and monitoring data models
-- Dockerised execution and automated testing
-- Scheduled final and preliminary data updates
-- Power BI reporting
+- End-to-end ETL pipeline for environmental data
+- Incremental ingestion of daily NOAA OISST observations
+- Geospatial processing using **GeoPandas** and **xarray**
+- Regional SST aggregation across six New Zealand coastal regions
+- Fixed 1991–2020 climatology baseline
+- SST anomaly and marine heat-event detection
+- PostgreSQL analytical data warehouse
+- Dockerised execution
+- Automated testing and validation
+- Interactive Power BI reporting
 
-## Architecture
-
-NOAA OISST 
-    │
-    ▼
-Python extraction 
-    │
-    ▼
-Regional transformation 
-    │
-    ├── Parquet processing layer
-    │
-    ▼
-PostgreSQL 
-    │
-    ▼
-Power BI
-
-Tests ──► Pipeline
-Logs  ◄── Pipeline
-Scheduler ──► Daily update
-
-## Contents
-- [Review Quick Start](#Review-Quick-Start)
-- [Project Overview](#project-overview)
-- [Data Source](#data-source)
-- [Architecture](#architecture)
-- [Power BI Dashboard](#power-bi-dashboard)
-- [Analytical Logic](#analytical-logic)
-- [Technical Reference](#technical-reference)
 ---
 
+## System Architecture
+
+```text
+                     NOAA OISST
+                         │
+                         ▼
+                 Python ETL Pipeline
+                         │
+      ┌──────────────────┴──────────────────┐
+      ▼                                     ▼
+Parquet Processing Layer              PostgreSQL
+                                             │
+                                             ▼
+                                        Power BI
+                                             │
+                                             ▼
+                                   Monitoring Dashboard
+
+        Docker • Pytest • Validation • Logging
+          Windows Task Scheduler (Current)
+```
+## Dashboard Preview
+
+The pipeline publishes processed SST observations to PostgreSQL, where they are consumed by Power BI to provide operational monitoring of New Zealand coastal marine heat conditions.
+
+### NZ Coastal Ocean Heat Overview
+
+The overview dashboard provides daily operational monitoring of sea surface temperature anomalies, climatological thresholds, and detected marine heat events across New Zealand coastal regions.
+
+<p align="center">
+  <img src="docs/images/overview_dashboard.png" width="900">
+</p>
+
+### NZ Coastal Ocean Heat Footprint
+
+The spatial dashboard highlights the latest regional distribution of marine heat anomalies, allowing rapid identification of coastal regions experiencing the strongest warming.
+
+<p align="center">
+  <img src="docs/images/heat_footprint.png" width="900">
+</p>
+
+
+> **Future cloud deployment**
+>
+> The local scheduling workflow will be migrated to AWS using GitHub Actions, Amazon ECR, EventBridge Scheduler, ECS Fargate, CloudWatch, and Amazon S3.
+
+---
+
+## Scientific Workflow
+
+```text
+               NOAA OISST
+                    │
+                    ▼
+      Regional SST Aggregation
+                    │
+                    ▼
+     1991–2020 Climatology Baseline
+                    │
+                    ▼
+         SST Anomaly Calculation
+                    │
+                    ▼
+      Marine Heat-Event Detection
+                    │
+                    ▼
+              PostgreSQL Database
+                    │
+                    ▼
+             Power BI Dashboard
+```
+
+---
+
+## Dashboard
+
 <details>
-<summary><strong>Dashboard preview</strong></summary>
+<summary><strong>Dashboard Preview</strong></summary>
 
-![NZ Coastal Ocean Heat overview](docs/images/nz_overview.png)
+![NZ Coastal Ocean Overview](docs/images/nz_overview.png)
 
-![NZ coastal heat footprint](docs/images/nz_coastal_heat.png)
+![NZ Coastal Heat Footprint](docs/images/nz_coastal_heat.png)
 
-![10-year SST projection](docs/images/nz_10_yr_projection.png)
+![10-Year SST Projection](docs/images/nz_10_yr_projection.png)
+
 </details>
 
 ---
-## Review Quick Start
 
-This project can be run either locally or with Docker Compose. The Docker workflow includes:
+## Technology Stack
 
-* a PostgreSQL database container
-* automatic schema and table creation from the `sql/` folder
-* a Python application container for tests, ETL, analytics, validation, and database loading
-* local access to the Docker PostgreSQL database from pgAdmin or Power BI
-
-### 1. Create the environment file
-
-Copy the example environment file:
-
-```powershell
-Copy-Item .env.example .env
-```
-
-The default Docker database settings are:
-
-```env
-POSTGRES_DB=nzheat
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=postgres
-POSTGRES_PORT_HOST=5433
-
-DB_HOST=localhost
-DB_PORT=5433
-DB_NAME=nzheat
-DB_USER=postgres
-DB_PASSWORD=postgres
-```
-
-Local tools such as pgAdmin, Power BI, and local Python connect to the Docker PostgreSQL database through:
-
-```text
-localhost:5433
-```
-
-The Python app container connects to the database internally through:
-
-```text
-postgres:5432
-```
-
-### 2. Build the Docker image
-
-```powershell
-docker compose build
-```
-
-### 3. Start PostgreSQL
-
-```powershell
-docker compose up -d postgres
-```
-
-Check that the database is running:
-
-```powershell
-docker compose ps
-```
-
-Expected port mapping:
-
-```text
-localhost:5433 -> postgres container:5432
-```
-
-### 4. Run the test suite inside Docker
-
-```powershell
-docker compose run --rm app python -m pytest -q
-```
-
-Expected result:
-
-```text
-36 passed
-```
-
-### 5. Run validation or pipeline commands inside Docker
-
-```powershell
-docker compose run --rm app python scripts/maintenance/validate_outputs.py
-```
-
-Example final refresh command:
-
-```powershell
-docker compose run --rm app python scripts/maintenance/run_final_refresh.py
-```
-
-Example database load command:
-
-```powershell
-docker compose run --rm app python -m nzheat.load.load_postgres
-```
-
-### 6. Connect Power BI to the Docker database
-
-Power BI can connect directly to the PostgreSQL database running in Docker.
-
-Use:
-
-```text
-Server: localhost:5433
-Database: nzheat
-Username: postgres
-Password: postgres
-```
-
-Use Import mode for the dashboard.
-
-### Notes
-
-Large raw and processed data files are not committed to the repository. The Docker app mounts the local `data/` folder at runtime, so full pipeline execution requires the expected local data files to be present or rebuilt from the source data workflow.
-
-PostgreSQL schema files in `sql/` are executed automatically only when the Docker database volume is first created. To rebuild the database from scratch:
-
-```powershell
-docker compose down -v
-docker compose up -d postgres
-```
+| Category | Technology |
+|-----------|------------|
+| Programming | Python 3.11 |
+| Data Processing | pandas, GeoPandas, xarray |
+| Storage | Parquet |
+| Database | PostgreSQL |
+| Database Access | SQLAlchemy, psycopg2 |
+| Testing | pytest |
+| Containers | Docker, Docker Compose |
+| Dashboard | Power BI |
+| Automation | Windows Task Scheduler |
 
 ---
+
+## Key Features
+
+- Incremental daily SST ingestion
+- Geospatial aggregation of NOAA OISST observations
+- Fixed climatology baseline (1991–2020)
+- Regional SST anomaly calculation
+- Marine heat-event detection
+- PostgreSQL analytical data warehouse
+- Automated validation
+- Dockerised workflow
+- Interactive Power BI dashboard
+
+---
+
+---
+
 ## Project Overview
 
-This project is designed as a small production-style monitoring system. It aims to answer practical questions such as:
+This project is designed as a small production-style environmental monitoring system that tracks sea surface temperature (SST) conditions around New Zealand using NOAA Optimum Interpolation Sea Surface Temperature (OISST) observations.
 
-- Which New Zealand coastal regions are warmer than normal?
-- How large is the SST anomaly relative to the long-term baseline?
-- Which regions are above their historical 90th percentile threshold?
-- Are any regions experiencing active heat events?
-- How do recent conditions compare with validated final OISST records?
-- How could recent regional SST trends be represented as an exploratory 10-year scenario?
+The pipeline automatically downloads daily SST data, aggregates observations into six New Zealand coastal regions, calculates SST anomalies relative to a fixed **1991–2020 climatology**, detects sustained marine heat events, and loads the analytical outputs into PostgreSQL for visualisation in Power BI.
 
-The project maintains both validated final OISST outputs and recent preliminary OISST outputs.
+The project demonstrates how a complete environmental monitoring workflow can be implemented using modern data engineering practices, including reproducible ETL pipelines, automated validation, containerised execution, and analytical database modelling.
 
-- Final OISST data supports the validated historical record, long-term anomaly calculations, and stable trend reporting.
-- Preliminary OISST data supports the most recent monitoring layer, including latest-status indicators and possible active heat events.
+### Monitoring Questions
 
-In the Power BI dashboard, these outputs are brought together into a monitoring view so users can see stable historical context alongside the most recent provisional conditions.
+The pipeline is designed to answer practical monitoring questions such as:
 
----
+- Which New Zealand coastal regions are currently warmer than expected?
+- How large are the SST anomalies relative to the long-term climatology?
+- Which regions exceed their historical 90th percentile threshold?
+- Are any regions experiencing sustained marine heat events?
+- How do the latest preliminary observations compare with the validated historical record?
+- How have regional SST patterns changed over time?
 
+### Final and Preliminary Monitoring
 
-## Data Source
+The monitoring system maintains two complementary data products.
 
-The project uses NOAA Optimum Interpolation Sea Surface Temperature v2.1 (OISST).
+**Final OISST**
 
-Two OISST data streams are used:
+The final OISST product provides the validated historical record used for:
 
-### Final OISST
+- climatology construction
+- long-term SST history
+- anomaly calculations
+- marine heat-event detection
+- historical reporting
 
-Final OISST is used for the validated historical record.
+**Preliminary OISST**
 
-It supports:
-
-- long-term regional SST history
-- validated regional SST history from 2021 onward
-- the fixed 1991–2020 climatology baseline
-- stable anomaly calculations
-- final warm-event detection
-- historical dashboard trends
-
-Final OISST is treated as the authoritative source for validated historical analysis, but it is delayed relative to near-real-time conditions.
-
-### Preliminary OISST
-
-Preliminary OISST is used for the recent monitoring layer.
-
-It supports:
+The preliminary OISST product provides the near-real-time monitoring layer used for:
 
 - latest regional SST conditions
 - recent anomaly monitoring
-- possible active heat-event indicators
-- latest-status dashboard cards and tables
+- possible active marine heat events
+- dashboard status indicators
 
-Preliminary OISST is more recent than final OISST, but it is provisional and may change when final data become available.
-
-Together, the final and preliminary outputs allow the dashboard to show both validated historical context and recent provisional monitoring conditions.
+By combining validated historical observations with recent preliminary data, the dashboard presents both long-term context and the most up-to-date monitoring information.
 
 ---
 
-## Coastal Regions
+# Data Source
 
-The MVP monitors six broad New Zealand coastal regions:
+The project uses the **NOAA Optimum Interpolation Sea Surface Temperature (OISST) Version 2.1** dataset, a globally gridded daily sea surface temperature product with a spatial resolution of **0.25° × 0.25°**.
+
+OISST combines observations from satellites, ships, and drifting and moored buoys into a consistent daily SST product, making it well suited for regional environmental monitoring and anomaly detection.
+
+The monitoring pipeline uses two complementary OISST products: **Final OISST** and **Preliminary OISST**.
+
+---
+
+## Final OISST
+
+Final OISST is the validated historical product and forms the foundation of the analytical workflow.
+
+It is used to:
+
+- build the fixed **1991–2020 climatology**
+- maintain the validated historical SST record
+- calculate long-term SST anomalies
+- detect validated marine heat events
+- support historical reporting and trend analysis
+
+Because Final OISST undergoes additional quality control, it is treated as the authoritative historical dataset throughout the project.
+
+---
+
+## Preliminary OISST
+
+Preliminary OISST provides the near-real-time monitoring layer.
+
+It is used to:
+
+- monitor the latest regional SST conditions
+- calculate recent SST anomalies
+- identify potential active marine heat events
+- populate the latest dashboard indicators
+
+Preliminary observations are available sooner than the Final product but may be revised when the validated dataset becomes available.
+
+---
+
+## Why both products are used
+
+Environmental monitoring requires both **accuracy** and **timeliness**.
+
+Using only the Final product would provide a reliable historical record but would delay monitoring by several days.
+
+Using only the Preliminary product would provide the most recent observations but would risk incorporating values that may later change after quality control.
+
+For this reason, the pipeline combines both products:
+
+- **Final OISST** provides the validated historical record and climatology.
+- **Preliminary OISST** extends the monitoring system with the most recent observations.
+
+This approach allows the dashboard to present stable long-term analyses alongside near-real-time environmental conditions while clearly distinguishing validated and provisional data.
+
+---
+
+# Coastal Regions
+
+The monitoring system aggregates daily sea surface temperature observations into **six broad New Zealand coastal regions**.
+
+Rather than analysing individual OISST grid cells, the pipeline groups observations into regional coastal zones to provide robust, interpretable indicators of large-scale coastal temperature patterns.
 
 | Code | Region |
-|---|---|
+|------|----------------------|
 | NNI | North North Island |
 | WNI | West North Island |
 | ENI | East North Island |
@@ -258,80 +289,135 @@ The MVP monitors six broad New Zealand coastal regions:
 | WSI | West South Island |
 | ESI | East South Island |
 
-The region polygons are stored in:
+The region boundaries are defined using custom approximative polygons stored in:
 
 ```text
 assets/regions/nz_coastal_regions.geojson
 ```
 
-NOAA OISST has a 0.25° spatial resolution, so this project focuses on regional coastal monitoring rather than farm-scale or site-scale conditions.
+Because NOAA OISST has a spatial resolution of approximately **0.25° (~25 km)**, the project focuses on **regional coastal monitoring** rather than site-scale or aquaculture farm-scale observations.
+
+The regional approach reduces local noise while providing spatially meaningful indicators suitable for environmental monitoring, anomaly detection, and dashboard reporting.
+
 
 ---
 
-## Architecture scientific workflow
+# Architecture
 
+The monitoring system is organised as a multi-stage analytical pipeline that transforms daily NOAA OISST observations into regional monitoring products for PostgreSQL and Power BI.
 
-```text
-NOAA OISST final data
-        ↓
-Python extraction and regional aggregation
-        ↓
-┌──────────────────────────────────────┐
-│ 1991–2020 climatology baseline       │
-│ Validated monitoring record          │
-│ from 2021 onward                     │
-└──────────────────────────────────────┘
-        ↓
-Anomaly calculation against fixed 1991–2020 baseline
-        ↓
-Final heat-event detection
-        ↓
-PostgreSQL final analytics tables
-```
+The workflow consists of five main stages:
+
+1. Data acquisition
+2. Regional aggregation
+3. Analytical processing
+4. Database loading
+5. Dashboard reporting
+
+## Pipeline Workflow
 
 ```text
-NOAA OISST preliminary data
-        ↓
-Recent provisional regional aggregation
-        ↓
-Anomaly calculation against fixed 1991–2020 baseline
-        ↓
-Preliminary heat-event detection
-        ↓
-PostgreSQL preliminary monitoring tables
+                    NOAA OISST
+              (Final & Preliminary)
+                         │
+                         ▼
+              Download Daily Files
+                         │
+                         ▼
+          Extract New Zealand Waters
+                         │
+                         ▼
+      Assign Grid Cells to Coastal Regions
+                         │
+                         ▼
+          Aggregate Regional Daily SST
+                         │
+             ┌───────────┴───────────┐
+             │                       │
+             ▼                       ▼
+      Final OISST             Preliminary OISST
+             │                       │
+             ▼                       ▼
+ 1991–2020 Climatology        Recent Monitoring
+ Validated SST History        Latest SST Values
+             │                       │
+             └───────────┬───────────┘
+                         ▼
+             SST Anomaly Calculation
+                         │
+                         ▼
+          Rolling Monitoring Metrics
+                         │
+                         ▼
+        Marine Heat-Event Detection
+                         │
+                         ▼
+            PostgreSQL Analytics
+                         │
+                         ▼
+             Power BI Dashboard
 ```
-
-```text
-PostgreSQL analytics tables
-        ↓
-Power BI monitoring dashboard
-        ↓
-Overview trends, active-event table, 10-year projection, and NZ coastal heat map
-```
-
-The final OISST workflow has two roles: it builds the fixed 1991–2020 climatology baseline and provides the validated post-baseline monitoring record from 2021 onward. The years after 2020 are not part of the baseline; they are observed years compared against the baseline. Preliminary OISST extends the dashboard with the most recent provisional monitoring conditions.
-
-
-
-## What the Pipeline Does
-
-The pipeline:
-
-- downloads NOAA OISST final and preliminary data
-- subsets data to New Zealand coastal waters
-- assigns OISST grid cells to six coastal regions
-- aggregates SST by region and date
-- builds a 1991–2020 day-of-year climatology
-- uses final OISST from 2021 onward as the validated post-baseline monitoring record
-- calculates SST anomalies against the fixed 1991–2020 baseline
-- calculates rolling anomaly metrics
-- flags days above the climatological 90th percentile
-- detects sustained warm events
-- loads final and preliminary outputs to PostgreSQL
-- supports Power BI dashboard reporting, including overview trends, recent active-event monitoring, 10-year projection, and the NZ coastal heat map
 
 ---
-## Technical Reference
+
+## Final OISST Workflow
+
+The Final OISST product provides the validated historical record used throughout the analytical pipeline.
+
+It is responsible for:
+
+- constructing the fixed **1991–2020 climatology**
+- maintaining the validated SST history
+- calculating historical SST anomalies
+- detecting validated marine heat events
+- supporting long-term trend analyses
+
+The years **after 2020** are **not** included in the climatology. Instead, they form the post-baseline monitoring period against which anomalies are calculated.
+
+---
+
+## Preliminary OISST Workflow
+
+The Preliminary OISST product extends the monitoring system with the most recent available observations.
+
+It provides:
+
+- latest regional SST conditions
+- preliminary anomaly calculations
+- possible active marine heat events
+- recent dashboard indicators
+
+These observations are considered provisional and may change when the corresponding Final OISST data become available.
+
+---
+
+## Database Outputs
+
+The analytical pipeline produces two complementary datasets.
+
+**Validated historical outputs**
+
+- Regional SST history
+- Climatology
+- Daily anomalies
+- Marine heat events
+
+**Near-real-time monitoring outputs**
+
+- Recent regional SST
+- Recent anomalies
+- Active event monitoring
+- Combined monitoring tables
+
+Power BI connects directly to PostgreSQL, allowing both validated historical analyses and recent monitoring information to be displayed within a single dashboard.
+
+---
+
+# Technical Reference
+
+The following sections describe the implementation details of the project, including the repository structure, data model, database schema, analytical pipeline, validation procedures, automation workflow, and Power BI integration.
+
+These sections are intended for developers or reviewers who wish to understand or reproduce the complete pipeline.
 
 <details>
 <summary><strong>Project Structure</strong></summary>
@@ -362,47 +448,21 @@ nz-ocean-heat-anomaly-monitor/
 │       ├── heat_events_recent_prelim.parquet
 │       └── r/
 │           └── region_sst_projection_10yr_gls_ar1.csv
+│
 ├── docs/
 │   ├── images/
-│   │   ├── nz_overview.png
-│   │   ├── nz_coastal_heat.png
-│   │   └── nz_10_yr_projection.png
 │   └── powerbi_measures.md
 │
 ├── r/
-│   ├── fit_gls_projection_10yr.R
-│   └── plot_gls_projection_10yr.R
 │
-├── scripts/ 
-│   ├── setup/ 
-│   │   ├── build_1991_2020_climatology.py 
-│   │   ├── build_gap_2021_2024_history.py 
-│   │   └── build_monthly_sst_history.py 
-│   │    
+├── scripts/
+│   ├── setup/
 │   ├── monitoring/
-│   │   ├── build_and_load_monitoring_anomalies.py 
-│   │   ├── run_daily_append.py
-│   │   ├── run_daily_pipeline.py
-│   │   └── run_preliminary_update.py 
-│   │   
-│   └── maintenance/ 
-│       ├── run_final_refresh.py 
-│       └── validate_outputs.py
+│   └── maintenance/
 │
 ├── sql/
-│   ├── 01_extensions.sql
-│   ├── 02_schema.sql
-│   ├── 03_tables.sql
-│   ├── 04_index.sql
-│   └── 05_logging_views.sql
 │
 ├── tests/
-│   ├── test_anomalies.py
-│   ├── test_events.py
-│   ├── test_extract_oisst.py
-│   ├── test_paths.py
-│   ├── test_projection_10yr.py
-│   └── test_region_aggregation.py
 │
 ├── nzheat/
 │   ├── extract/
@@ -410,354 +470,440 @@ nz-ocean-heat-anomaly-monitor/
 │   ├── analytics/
 │   ├── pipeline/
 │   └── load/
+│
 ├── Dockerfile
 ├── docker-compose.yml
-├── .dockerignore
-├── daily_update.bat
 ├── requirements.txt
 ├── pyproject.toml
-├── .env.example
-├── .gitignore
-└── README.md
+├── README.md
 ```
+
+### Repository organisation
+
+The project is organised into modular components following the main stages of the data pipeline:
+
+| Directory | Purpose |
+|-----------|---------|
+| `extract/` | Download and read NOAA OISST datasets |
+| `transform/` | Regional aggregation and preprocessing |
+| `analytics/` | Climatology, anomalies, heat-event detection and projections |
+| `pipeline/` | Pipeline orchestration and maintenance workflows |
+| `load/` | PostgreSQL loading utilities |
+| `tests/` | Automated unit tests |
+| `scripts/` | Setup, monitoring and maintenance entry points |
+| `sql/` | Database schemas, tables, indexes and views |
+| `docs/` | Dashboard images and documentation |
+
 </details>
 
-
----
-<details>
-<summary><strong>Tech Stack</strong></summary>
-
-### Data manipulation and analysis
-
-- Python 3.11
-- pandas
-- geopandas
-- xarray
-- netCDF4
-- requests
-- pyarrow
-- SQLAlchemy
-- psycopg2
-
-### Database
-
-- PostgreSQL
-- PostgreSQL schemas for `core`, `analytics`, `mart` and `meta`
-- SQL-based schema, table, index, and logging-view creation
-
-### Reproducibility and deployment workflow
-
-- Docker
-- Docker Compose
-- Containerised PostgreSQL
-- Containerised Python application environment
-
-### Testing and validation
-- pytest
-- Python output validation scripts
-- PostgreSQL pipeline logging tables/views
-
-### Dashboard
-
-- Power BI
-
-### Automation
-
-- Windows Task Scheduler
-- Batch script for daily local refresh
-- Docker Compose workflow for reproducible local execution
----
-</details>
-
----
 
 <details>
 <summary><strong>Environment and Database Setup</strong></summary>
 
-Create and activate the Conda environment:
+## Environment Setup
+
+The project can be run either locally or using Docker. The recommended workflow is Docker, which provides a reproducible environment with PostgreSQL and all required Python dependencies.
+
+### Local Python Environment (optional)
+
+Create and activate a Conda environment:
 
 ```powershell
 conda create -n nzheat python=3.11
 conda activate nzheat
 ```
 
-Install dependencies:
+Install the project dependencies:
 
 ```powershell
 pip install -r requirements.txt
 ```
----
-
-## Database Setup
-
-Run the SQL scripts in this order:
-
-```text
-sql/01_extensions.sql
-sql/02_schema.sql
-sql/03_tables.sql
-sql/04_index.sql
-sql/05_logging_views.sql
-```
-
-The main schemas are:
-
-```text
-core
-analytics
-mart
-meta
-```
-
-### Core table
-
-```text
-core.regions
-```
-
-### Final OISST analytics tables
-
-```text
-analytics.region_daily_sst
-analytics.region_climatology
-analytics.region_daily_anomalies
-analytics.heat_events
-```
-
-### Preliminary OISST analytics tables
-
-```text
-analytics.region_daily_sst_prelim
-analytics.region_daily_anomalies_prelim
-analytics.heat_events_prelim
-```
 
 ---
+
+## Docker Setup (recommended)
+
+Copy the example environment file:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+The default Docker database configuration is:
+
+```env
+POSTGRES_DB=nzheat
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+POSTGRES_PORT_HOST=5433
+
+DB_HOST=localhost
+DB_PORT=5433
+DB_NAME=nzheat
+DB_USER=postgres
+DB_PASSWORD=postgres
+```
+
+Build the Docker images:
+
+```powershell
+docker compose build
+```
+
+Start PostgreSQL:
+
+```powershell
+docker compose up -d postgres
+```
+
+Verify that the container is running:
+
+```powershell
+docker compose ps
+```
+
+Expected port mapping:
+
+```text
+localhost:5433 → postgres:5432
+```
+
+The Python application container communicates with PostgreSQL using:
+
+```text
+postgres:5432
+```
+
+Local applications such as pgAdmin and Power BI connect through:
+
+```text
+localhost:5433
+```
+
+---
+
+## Database Initialisation
+
+The PostgreSQL database is created automatically when the Docker PostgreSQL container starts for the first time.
+
+The SQL scripts in the `sql/` directory are executed in the following order:
+
+```text
+01_extensions.sql
+02_schema.sql
+03_tables.sql
+04_index.sql
+05_logging_views.sql
+```
+
+These scripts create:
+
+- PostgreSQL extensions
+- database schemas
+- analytical tables
+- indexes
+- logging views
+
+The project uses four database schemas:
+
+| Schema | Purpose |
+|---------|---------|
+| `core` | Reference tables |
+| `analytics` | Processed analytical outputs |
+| `mart` | Dashboard-ready reporting tables |
+| `meta` | Pipeline metadata and logging |
+
+---
+
+## Rebuilding the Database
+
+To recreate the PostgreSQL database from scratch:
+
+```powershell
+docker compose down -v
+docker compose up -d postgres
+```
+
+This removes the existing database volume and rebuilds all schemas and tables automatically.
+
 </details>
 
----
+
 <details>
 <summary><strong>Data Model</strong></summary>
 
-### `core.regions`
+## Overview
 
-Reference table for the six coastal regions.
+The PostgreSQL database is organised into four schemas:
 
-Main fields:
+| Schema | Purpose |
+|---------|---------|
+| `core` | Reference data |
+| `analytics` | Processed analytical outputs |
+| `mart` | Dashboard-ready reporting tables |
+| `meta` | Pipeline metadata and logging |
 
-```text
-region_id
-region_code
-region_name
-geom_wkt
-```
-
-### `analytics.region_daily_sst`
-
-Daily final OISST regional SST values.
-
-Main fields:
+The analytical workflow follows a simple progression:
 
 ```text
-date
-region_id
-region_code
-region_name
-mean_sst_c
-cell_count
-min_sst_c
-max_sst_c
+Raw NOAA OISST
+        │
+        ▼
+Regional SST
+        │
+        ▼
+Climatology
+        │
+        ▼
+Daily Anomalies
+        │
+        ▼
+Marine Heat Events
+        │
+        ▼
+Power BI Dashboard
 ```
-
-### `analytics.region_climatology`
-
-Day-of-year climatology based on the 1991–2020 baseline.
-
-Main fields:
-
-```text
-region_id
-day_of_year
-clim_mean_sst_c
-clim_p90_sst_c
-sample_size
-```
-
-### `analytics.region_daily_anomalies`
-
-Final OISST anomaly table.
-
-Main fields:
-
-```text
-date
-region_id
-day_of_year
-mean_sst_c
-clim_mean_sst_c
-clim_p90_sst_c
-anomaly_c
-rolling_7d_anomaly_c
-rolling_30d_anomaly_c
-warming_rate_7d_c
-above_p90
-status_label
-```
-
-### `analytics.heat_events`
-
-Detected final-data heat events.
-
-Main fields:
-
-```text
-event_id
-region_id
-event_type
-severity_class
-start_date
-end_date
-duration_days
-max_anomaly_c
-mean_anomaly_c
-peak_date
-is_active
-threshold_c
-min_duration_days
-```
-
-### Preliminary tables
-
-The preliminary tables mirror the final tables but include:
-
-```text
-data_product = preliminary
-is_provisional = true
-```
-
-These tables are used for recent dashboard indicators and possible active events.
 
 ---
 
-## Climatology Baseline
+## Reference Tables
 
-The climatology baseline is built from final OISST data for:
+### `core.regions`
+
+Stores the six New Zealand coastal regions used throughout the pipeline.
+
+| Field | Description |
+|------|-------------|
+| `region_id` | Internal region identifier |
+| `region_code` | Short region code (NNI, WNI, etc.) |
+| `region_name` | Region name |
+| `geom_wkt` | Region geometry |
+
+---
+
+## Historical Analytical Tables
+
+### `analytics.region_daily_sst`
+
+Validated daily regional SST observations derived from Final OISST.
+
+| Field | Description |
+|------|-------------|
+| `date` | Observation date |
+| `region_id` | Region identifier |
+| `region_code` | Region code |
+| `region_name` | Region name |
+| `mean_sst_c` | Mean SST (°C) |
+| `cell_count` | Number of OISST cells |
+| `min_sst_c` | Minimum SST |
+| `max_sst_c` | Maximum SST |
+
+---
+
+### `analytics.region_climatology`
+
+Daily climatology calculated from the **1991–2020** baseline.
+
+| Field | Description |
+|------|-------------|
+| `region_id` | Region identifier |
+| `day_of_year` | Day of year (1–365) |
+| `clim_mean_sst_c` | Mean climatological SST |
+| `clim_p90_sst_c` | 90th percentile SST |
+| `sample_size` | Number of observations |
+
+---
+
+### `analytics.region_daily_anomalies`
+
+Daily SST anomalies calculated relative to the fixed climatology.
+
+| Field | Description |
+|------|-------------|
+| `date` | Observation date |
+| `region_id` | Region identifier |
+| `day_of_year` | Day of year |
+| `mean_sst_c` | Observed SST |
+| `clim_mean_sst_c` | Climatological SST |
+| `clim_p90_sst_c` | Climatological 90th percentile |
+| `anomaly_c` | SST anomaly |
+| `rolling_7d_anomaly_c` | 7-day rolling anomaly |
+| `rolling_30d_anomaly_c` | 30-day rolling anomaly |
+| `warming_rate_7d_c` | Short-term warming rate |
+| `above_p90` | Above climatological threshold |
+| `status_label` | Monitoring classification |
+
+---
+
+### `analytics.heat_events`
+
+Detected marine heat events.
+
+| Field | Description |
+|------|-------------|
+| `event_id` | Event identifier |
+| `region_id` | Region identifier |
+| `event_type` | Event type |
+| `severity_class` | Severity classification |
+| `start_date` | Event start |
+| `end_date` | Event end |
+| `duration_days` | Event duration |
+| `max_anomaly_c` | Maximum anomaly |
+| `mean_anomaly_c` | Mean anomaly |
+| `peak_date` | Peak warming |
+| `is_active` | Active event flag |
+| `threshold_c` | Threshold SST |
+| `min_duration_days` | Minimum qualifying duration |
+
+---
+
+## Preliminary Monitoring Tables
+
+The preliminary monitoring tables mirror the validated analytical tables but contain the latest provisional OISST observations.
+
+These tables include:
 
 ```text
-1991-01-01 to 2020-12-31
+analytics.region_daily_sst_prelim
+
+analytics.region_daily_anomalies_prelim
+
+analytics.heat_events_prelim
 ```
-The years after 2020 are not included in the climatology baseline. Instead, final OISST records from 2021 onward are used as the post-baseline monitoring period. These observed SST values are compared against the fixed 1991–2020 climatology to calculate anomalies, above-p90 flags, rolling metrics, and detected warm events.
 
-
-
-The climatology is calculated for each:
+Additional metadata identifies these records as preliminary:
 
 ```text
-region × day_of_year
+data_product = preliminary
+
+is_provisional = true
 ```
 
-Expected climatology output:
+These tables support the real-time monitoring pages within the Power BI dashboard.
+
+---
+
+## Climatology
+
+The climatology is constructed from validated Final OISST observations between:
 
 ```text
-365 days × 6 regions = 2,190 rows
+1991-01-01
+↓
+
+2020-12-31
 ```
 
-With a full 1991–2020 baseline, the expected sample size is approximately:
+The climatology is calculated independently for every:
 
 ```text
-30 observations per region/day-of-year
+Region
+×
+
+Day of Year
 ```
 
-### Leap-year handling
+Expected output:
 
-The climatology uses a no-leap 365-day calendar:
+```text
+365 days × 6 regions
+
+= 2,190 climatology records
+```
+
+Each climatology value is calculated from approximately **30 years of observations**.
+
+---
+
+## Leap-Year Handling
+
+The climatology uses a **365-day calendar**.
+
+To maintain alignment between leap and non-leap years:
 
 - February 29 is removed.
 - Dates after February 29 in leap years are shifted back by one day.
 
-This avoids misalignment between leap and non-leap years.
+This ensures each climatology value always compares equivalent calendar days across years.
 
----
----
 </details>
 
----
 
 <details>
 <summary><strong>Main Pipeline Commands</strong></summary>
 
-### 1. Build the 1991–2020 climatology
+## Pipeline Overview
+
+The project consists of four main workflows:
+
+1. **Initial setup** *(run once)*
+2. **Daily monitoring** *(run routinely)*
+3. **Exploratory analyses** *(optional)*
+4. **Maintenance and validation** *(as required)*
+
+---
+
+# 1. Initial Setup
+
+These commands are only required when building the project from scratch.
+
+---
+
+## Build the 1991–2020 Climatology
 
 ```powershell
 python scripts\setup\build_1991_2020_climatology.py
 ```
 
-This creates:
+Creates:
 
 ```text
 data/processed/region_daily_sst_baseline_1991_2020.parquet
+
 data/processed/region_climatology.parquet
 ```
 
-This is a long-running step because it processes approximately 30 years of daily OISST files but runs only once.
+This step processes approximately 30 years of OISST observations and normally only needs to be run once.
 
 ---
-### 2. Build the 2021–2024 post-baseline gap history
+
+## Build the 2021–2024 Historical Record
 
 ```powershell
 python scripts\setup\build_gap_2021_2024_history.py
 ```
 
-This creates the validated post-baseline SST history for the gap years:
+Creates:
 
 ```text
 data/processed/region_daily_sst_gap_2021_2024.parquet
 ```
 
-These years are not part of the climatology baseline. They are observed final-OISST years compared against the fixed 1991–2020 baseline.
+These observations form the validated post-baseline monitoring period.
 
 ---
 
-### 3. Recalculate final anomalies and events
+# 2. Daily Monitoring Workflow
 
-```powershell
-python scripts\maintenance\run_final_refresh.py
-```
-After building or updating the climatology, run:
-
-```powershell
-python -m nzheat.analytics.anomalies
-python -m nzheat.analytics.events
-python -m nzheat.load.load_postgres
-```
-
-This updates:
-
-```text
-data/processed/region_daily_anomalies.parquet
-data/processed/heat_events.parquet
-```
-
-and loads the final outputs to PostgreSQL.
+The daily monitoring workflow keeps both the validated historical record and the near-real-time monitoring layer up to date.
 
 ---
 
-### 4. Run the daily final-OISST append
+## Update Final OISST
 
 ```powershell
 python scripts\monitoring\run_daily_append.py
 ```
 
-The daily append script:
+This workflow:
 
-- checks the latest existing final OISST date in the history file
-- calculates the latest safe final OISST date using a lag
+- checks for newly available Final OISST observations
 - appends only missing dates
 - recalculates anomalies
-- recalculates events
-- reloads final tables to PostgreSQL
+- recalculates marine heat events
+- reloads PostgreSQL analytical tables
 
-The final SST history is stored in:
+Updated output:
 
 ```text
 data/processed/region_daily_sst_history.parquet
@@ -765,380 +911,646 @@ data/processed/region_daily_sst_history.parquet
 
 ---
 
-### 5. Run the preliminary OISST update
+## Update Preliminary OISST
 
 ```powershell
 python scripts\monitoring\run_preliminary_update.py
+
 python -m nzheat.load.load_preliminary_postgres
 ```
 
-This creates and loads:
+Creates:
 
 ```text
-data/processed/region_daily_sst_recent_prelim.parquet
-data/processed/region_daily_anomalies_recent_prelim.parquet
-data/processed/heat_events_recent_prelim.parquet
+region_daily_sst_recent_prelim.parquet
+
+region_daily_anomalies_recent_prelim.parquet
+
+heat_events_recent_prelim.parquet
 ```
 
-into the PostgreSQL preliminary monitoring tables:
+These outputs populate the near-real-time monitoring layer.
 
-```text
-analytics.region_daily_sst_prelim 
-analytics.region_daily_anomalies_prelim 
-analytics.heat_events_prelim
-```
-These outputs support recent monitoring indicators and possible active heat events.
 ---
 
-### 6. Build the combined monitoring anomaly table
+## Build the Monitoring Dataset
 
 ```powershell
 python scripts\monitoring\build_and_load_monitoring_anomalies.py
 ```
 
-This combines final and preliminary anomaly outputs into a single monitoring table:
-
-```text
-data/processed/region_daily_anomalies_monitoring.parquet 
-analytics.region_daily_anomalies_monitoring
-```
-This table is used by the Power BI monitoring pages, including the latest anomaly cards and the NZ coastal heat map.
+Combines Final and Preliminary anomalies into a single monitoring table used by Power BI.
 
 ---
 
-### 7. Build and load the 10-year projection table
+# 3. Historical Rebuild
 
-This project includes two parallel 10-year SST projection workflows:
+If the climatology or historical SST records are modified, regenerate downstream products:
 
-- a main Python workflow used by PostgreSQL and Power BI
-- a parallel R workflow used for exploratory modelling and comparison
+```powershell
+python scripts\maintenance\run_final_refresh.py
+```
 
-The main production workflow is the Python workflow.
+or manually:
 
-#### Main workflow: Python projection loaded to PostgreSQL
+```powershell
+python -m nzheat.analytics.anomalies
 
-First, build the full regional SST history table:
+python -m nzheat.analytics.events
+
+python -m nzheat.load.load_postgres
+```
+
+This refreshes:
+
+- anomalies
+- heat events
+- PostgreSQL analytical tables
+
+---
+
+# 4. 10-Year Projection
+
+The project includes two independent projection workflows.
+
+## Production Workflow (Python)
+
+Build the historical SST dataset:
+
 ```powershell
 python -m nzheat.analytics.build_full_sst_history
 ```
 
-This creates:
-
-```powershell
-data/processed/region_daily_sst_full_history.parquet
-```
-
-This file contains the regional daily SST history needed to estimate recent warming trends.
-
-Next, build the 10-year regional SST projection table:
+Generate the projection:
 
 ```powershell
 python -m nzheat.analytics.projection_10yr
 ```
-This creates:
-```powershell
-data/processed/region_sst_projection_10yr.parquet
-```
-Then load the projection output into PostgreSQL:
+
+Load into PostgreSQL:
+
 ```powershell
 python -m nzheat.load.load_projection_10yr_to_postgres
 ```
-This loads the data into:
-```powershell
-analytics.region_monthly_sst_projection_10yr
-```
-Power BI reads this PostgreSQL table for the 10-year projection page.
 
-Run the full main projection pipeline with:
-```powershell
-python -m nzheat.analytics.build_full_sst_history
-python -m nzheat.analytics.projection_10yr
-python -m nzheat.load.load_projection_10yr_to_postgres
-```
+Power BI reads this PostgreSQL table directly.
 
-#### Parallel workflow: R projection model
+---
 
-An alternative R-based projection workflow is also included for exploratory modelling and validation.
+## Exploratory Workflow (R)
 
-The R workflow uses a GLS model with AR(1) autocorrelated residuals. This model estimates a long-term SST trend while controlling for monthly seasonality and accounting for correlation between neighbouring months.
-
-Run: 
+Fit the GLS AR(1) model:
 
 ```powershell
 Rscript r\fit_gls_projection_10yr.R
 ```
-This creates:
-```powershell
-data/processed/r/region_sst_projection_10yr.csv
-```
-To create exploratory plots from the GLS AR(1) projection output, run:
+
+Create visualisations:
 
 ```powershell
 Rscript r\plot_gls_projection_10yr.R
 ```
-This creates:
 
-```powershell
-docs/images/r_projection_gls_ar1_selected_region.png
-docs/images/r_projection_gls_ar1_all_regions.png
-```
-The R output is kept as a parallel exploratory modelling workflow.   
-It is useful for reviewing the projected SST trend and checking a more statistically defensible time-series model, but it is not loaded into PostgreSQL by default.
-The main Power BI dashboard continues to use the Python-generated parquet projection loaded into PostgreSQL.
-
-
-
+This workflow is provided for comparison and exploratory modelling only.
 
 ---
-### 8. Validate outputs
+
+# 5. Validation
+
+Run the validation suite:
 
 ```powershell
 python scripts\maintenance\validate_outputs.py
 ```
 
-Useful checks include:
+Validation checks include:
 
-```text
-Duplicate date-region rows
-Missing complete dates
-Missing region-date combinations
-Rows with missing anomaly
-Rows with missing p90 flag
-Latest available date
-Active events
-Climatology sample size
-```
+- duplicate observations
+- missing dates
+- missing regions
+- missing anomaly values
+- climatology completeness
+- active heat events
+- latest available observations
 
-Expected final climatology check after the 1991–2020 baseline:
+Expected climatology:
 
 ```text
 Rows: 2190
-Day-of-year range: 1 to 365
-Min sample size: approximately 30
-Max sample size: approximately 30
-Rows with missing climatology values: 0
+
+Regions: 6
+
+Days: 365
+
+Missing values: 0
 ```
-
-### 9. Maintenance backfill if missing dates
-
-The normal daily pipeline only processes newly available final OISST dates and recent preliminary data. It does not automatically go backwards to repair older gaps.
-
-Use the backfill command only when a past final SST date is missing, corrupted, or needs to be regenerated.
-Backfill is a maintenance/repair command. It is not required for the normal daily update.
-
-#### When to use backfill
-
-Use backfill if validation reports missing final SST dates, for example:
-
-Missing complete dates:
-2026-05-05
-2026-05-06
-
-In this case, run:
-```powershell
-python -m nzheat.pipeline.backfill --start-date 2026-05-05 --end-date 2026-05-06
-```
-#### After running backfill
-After a successful backfill, rebuild the downstream outputs:
-```powershell
-python -m nzheat.analytics.anomalies 
-python -m nzheat.analytics.events 
-python -m nzheat.load.load_postgres 
-python scripts\monitoring\build_and_load_monitoring_anomalies.py 
-python scripts\maintenance\validate_outputs.py
-```
-</details>
 
 ---
 
+# 6. Maintenance Backfill
+
+Backfill is only required when historical observations are missing.
+
+Example:
+
+```powershell
+python -m nzheat.pipeline.backfill ^
+--start-date 2026-05-05 ^
+--end-date 2026-05-06
+```
+
+After backfilling:
+
+```powershell
+python -m nzheat.analytics.anomalies
+
+python -m nzheat.analytics.events
+
+python -m nzheat.load.load_postgres
+
+python scripts\monitoring\build_and_load_monitoring_anomalies.py
+
+python scripts\maintenance\validate_outputs.py
+```
+
+</details>
 
 <details>
 <summary><strong>Testing</strong></summary>
 
-The project includes pytest coverage for the core analytics pipeline, including:
+## Testing
 
-- regional SST aggregation
-- anomaly calculation
-- marine heat-event detection
-- 10-year projection output structure
-- OISST extraction filename/date logic
-- project path utilities
+The project includes an automated **pytest** suite covering the core components of the analytical pipeline.
 
-Run the test suite with:
+Current test coverage includes:
+
+| Component | Purpose |
+|-----------|---------|
+| Regional aggregation | Validates assignment of OISST grid cells to coastal regions |
+| SST anomalies | Verifies climatology and anomaly calculations |
+| Marine heat events | Validates event detection logic |
+| OISST extraction | Checks filename parsing and extraction workflows |
+| 10-year projection | Validates projection output structure |
+| Project utilities | Tests project paths and helper functions |
+
+---
+
+### Run the complete test suite
 
 ```powershell
 python -m pytest -q
 ```
-or a single test for example:
+
+or inside Docker:
+
+```powershell
+docker compose run --rm test python -m pytest -q
+```
+
+Expected output:
+
+```text
+36 passed
+```
+
+---
+
+### Run a single test
+
+Example:
 
 ```powershell
 python -m pytest tests\test_events.py -q
 ```
-or to check if everything complies:
+
+---
+
+### Verify that all modules compile
 
 ```powershell
 python -m compileall nzheat scripts
 ```
 
-</details>
+This command performs a syntax check across the project and is useful after larger code changes.
 
 ---
 
+### Validation
+
+In addition to unit tests, the project includes a validation workflow that checks the integrity of analytical outputs before they are loaded into PostgreSQL.
+
+Run:
+
+```powershell
+python scripts\maintenance\validate_outputs.py
+```
+
+Validation includes checks for:
+
+- duplicate observations
+- missing dates
+- missing region/date combinations
+- missing anomaly values
+- climatology completeness
+- active marine heat events
+
+These checks provide an additional safeguard beyond the unit test suite by validating generated datasets rather than individual functions.
+
+</details>
+
+
 <details>
-<summary><strong>Daily Automation</strong></summary>
+<summary><strong>Pipeline Scheduling</strong></summary>
 
-The project uses Windows Task Scheduler for local daily automation.
+## Pipeline Scheduling
 
-The scheduled task runs:
+The monitoring pipeline is designed to run automatically on a regular schedule.
 
-```text
+The current implementation uses **Windows Task Scheduler**, which executes the daily update workflow through a batch script.
+
+```
 daily_update.bat
 ```
 
-The file:
+The batch script performs the following steps:
 
-- opens the project directory
-- activates the nzheat Conda environment
-- scripts/monitoring/run_daily_append.py
-- scripts/monitoring/run_preliminary_update.py
-- runs python -m nzheat.load.load_preliminary_postgres
-- rebuilds/loads the combined monitoring anomaly table if required
-- writes logs to logs/daily_update.log
+1. Opens the project directory
+2. Activates the `nzheat` Conda environment
+3. Updates the validated Final OISST record
+4. Updates the latest Preliminary OISST observations
+5. Loads the latest analytical outputs into PostgreSQL
+6. Refreshes the monitoring tables used by Power BI
+7. Writes execution logs
 
-The daily automation combines two update layers:
+---
 
-1. scripts/monitoring/run_daily_append.py checks whether new validated final OISST dates are available....
-2. python -m nzheat.load.load_preliminary_postgres` loads the most recent preliminary SST, anomaly, and heat-event outputs into PostgreSQL..
+## Daily Workflow
 
-The preliminary load is required so that recent monitoring indicators and possible active heat events remain populated in Power BI.
+The scheduled pipeline performs two independent update processes.
 
-A successful Task Scheduler run should show:
+### Final OISST Update
 
-Last Run Result: 0x0
+```
+scripts/monitoring/run_daily_append.py
+```
 
-The log can be checked with:
+This workflow:
 
+- checks whether new validated OISST observations are available
+- appends only new dates
+- recalculates anomalies
+- recalculates marine heat events
+- reloads analytical PostgreSQL tables
+
+---
+
+### Preliminary OISST Update
+
+```
+scripts/monitoring/run_preliminary_update.py
+
+python -m nzheat.load.load_preliminary_postgres
+```
+
+This workflow updates the near-real-time monitoring layer by:
+
+- downloading the latest preliminary observations
+- recalculating preliminary anomalies
+- updating active marine heat events
+- loading the monitoring tables into PostgreSQL
+
+These data populate the latest dashboard indicators until validated Final OISST observations become available.
+
+---
+
+## Monitoring Table Refresh
+
+The combined monitoring dataset is rebuilt using:
+
+```powershell
+python scripts\monitoring\build_and_load_monitoring_anomalies.py
+```
+
+This table merges validated historical observations with the latest preliminary monitoring data and is the primary data source for the Power BI monitoring pages.
+
+---
+
+## Logging
+
+Pipeline execution writes log files to:
+
+```text
+logs/daily_update.log
+```
+
+The latest log entries can be viewed with:
+
+```powershell
 Get-Content logs\daily_update.log -Tail 40
+```
 
-A successful log should include lines similar to:
+A successful execution should include messages similar to:
 
+```text
 Running run_daily_append.py
-Running load_preliminary_postgres.py
+
+Running run_preliminary_update.py
+
 Loaded rows into analytics.heat_events_prelim
+
 Daily update finished
+```
+
+---
+
+## Future Improvements
+
+The current local scheduler is intended as a lightweight automation solution.
+
+Future versions of the project will replace Windows Task Scheduler with a cloud-native scheduling workflow based on:
+
+- GitHub Actions
+- Amazon EventBridge Scheduler
+- Amazon ECS Fargate
+- Amazon CloudWatch
+
+This will allow the pipeline to run automatically without relying on a local machine.
 
 </details>
 
----
-
-
-## Power BI Dashboard
-
-
-Power BI connects directly to the PostgreSQL database.
-
-The dashboard includes three main pages:
-
-1. **Monitoring Overview**
-
-   Shows recent SST anomalies, 7-day anomaly trends, latest monitoring status, and possible active heat events based on preliminary OISST outputs.
-
-2. **10-Year Projection**
-
-   Shows recent SST history together with a simple 10-year regional warming projection. This page is designed as an exploratory scenario rather than a formal forecast.
-
-3. **NZ Coastal Heat Footprint**
-
-   Shows a custom New Zealand coastal region map coloured by latest 30-day SST anomaly. This page highlights which coastal regions are currently warmest relative to their 1991–2020 climatology.
-
-The dashboard separates absolute SST from SST anomaly so that naturally warmer northern regions are not confused with regions experiencing stronger relative warming.
-
 
 ---
 
-## Analytical Logic
+# Power BI Dashboard
 
-### Fixed climatology baseline
+The Power BI dashboard provides an interactive interface for exploring regional sea surface temperature conditions around New Zealand.
 
-The project uses a fixed 1991–2020 climatology baseline. This baseline represents the expected seasonal SST cycle for each coastal region and day of year.
+It combines validated historical observations with the latest preliminary monitoring data to support both long-term environmental assessment and near-real-time monitoring.
 
-The years after 2020 are not included in the baseline. Instead, final OISST records from 2021 onward are treated as the validated post-baseline monitoring period and are compared against the fixed baseline.
+The dashboard is organised into three complementary pages.
 
-### SST anomaly
+---
 
-Daily SST anomaly is calculated as:
+## 1. Monitoring Overview
+
+This page summarises the current state of coastal sea surface temperatures across New Zealand.
+
+It provides a high-level overview of recent SST anomalies, short-term trends, and possible active marine heat events.
+
+Key outputs include:
+
+- latest regional SST anomalies
+- rolling 7-day and 30-day anomaly trends
+- current monitoring status
+- possible active marine heat events
+- recent regional comparisons
+
+This page is designed to answer questions such as:
+
+- Which regions are currently warmer than expected?
+- Where are the strongest SST anomalies?
+- Are any marine heat events currently active?
+
+---
+
+## 2. 10-Year SST Projection
+
+This page presents recent SST observations alongside an exploratory 10-year projection.
+
+The projection is intended to illustrate how recent regional warming trends may continue under a simple trend-based scenario.
+
+It is **not** presented as a climate forecast.
+
+Key outputs include:
+
+- historical regional SST
+- projected SST trends
+- comparison between observed and projected values
+
+This page supports exploratory assessment of potential future regional warming patterns.
+
+---
+
+## 3. NZ Coastal Heat Footprint
+
+This page visualises the latest regional SST anomalies on a custom New Zealand coastal map.
+
+Regions are coloured according to their latest **30-day SST anomaly**, allowing rapid identification of coastal areas experiencing sustained warming.
+
+Using anomalies rather than absolute temperatures avoids confusing naturally warmer northern waters with regions experiencing unusually warm conditions relative to their historical climatology.
+
+This page is designed to answer questions such as:
+
+- Which coastal regions are experiencing the strongest warming?
+- How is warming distributed around New Zealand?
+- Which regions are currently above their normal seasonal conditions?
+
+---
+
+## Dashboard Design Principles
+
+The dashboard is built around three core principles.
+
+### Separate absolute temperature from anomalies
+
+Absolute SST and SST anomalies are presented separately because naturally warmer regions are not necessarily experiencing stronger warming relative to their historical climate.
+
+---
+
+### Combine validated and recent observations
+
+Historical analyses use validated Final OISST observations, while the monitoring layer incorporates Preliminary OISST to provide the most up-to-date regional conditions.
+
+---
+
+### Support environmental monitoring
+
+The dashboard is intended as a monitoring tool rather than a forecasting system, allowing users to quickly identify unusual regional warming patterns while retaining historical context.
+
+
+---
+
+# Analytical Logic
+
+The monitoring system is built around a fixed climatological baseline and a series of analytical transformations that convert daily sea surface temperature observations into regional monitoring indicators.
+
+The analytical workflow follows five main steps:
+
+1. Build a fixed climatology
+2. Calculate daily SST anomalies
+3. Calculate rolling monitoring metrics
+4. Detect marine heat events
+5. Generate dashboard-ready analytical products
+
+---
+
+## Fixed Climatology Baseline
+
+The project uses a fixed **1991–2020 climatology** as the reference period for all anomaly calculations.
+
+The climatology represents the expected seasonal SST cycle for each coastal region and each day of the year.
+
+Only observations between:
 
 ```text
-anomaly_c = observed mean SST - climatological mean SST
+1991-01-01
+
+↓
+
+2020-12-31
 ```
 
-where the climatological mean is calculated from the 1991–2020 baseline for the same region and day of year.
+are used to construct the climatology.
 
-### 90th percentile threshold
+Final OISST observations from **2021 onward** are treated as the post-baseline monitoring period and are compared against the fixed climatology.
 
-Each region/day-of-year also has a climatological 90th percentile threshold:
+Using a fixed baseline ensures that changes observed after 2020 represent departures from a stable historical reference rather than a continually shifting average.
+
+---
+
+## SST Anomaly Calculation
+
+Daily SST anomalies are calculated as:
+
+```text
+SST Anomaly = Observed SST − Climatological Mean SST
+```
+
+where:
+
+- **Observed SST** is the regional daily mean SST
+- **Climatological Mean SST** is the expected SST for the same region and day of year based on the 1991–2020 climatology
+
+Positive anomalies indicate warmer-than-expected conditions, while negative anomalies indicate cooler-than-expected conditions.
+
+---
+
+## Climatological Threshold
+
+For each region and day of year, the pipeline also calculates a climatological **90th percentile threshold**.
 
 ```text
 clim_p90_sst_c
 ```
 
-A day is flagged as above p90 when:
+A day is classified as unusually warm when:
 
 ```text
-mean_sst_c > clim_p90_sst_c
-```
-This identifies days where SST is unusually warm for that region and time of year
-
-### Rolling metrics
-
-The anomaly table includes:
-
-```text
-rolling_7d_anomaly_c
-rolling_30d_anomaly_c
-warming_rate_7d_c
+Observed SST > Climatological 90th Percentile
 ```
 
-The 7-day anomaly supports short-term monitoring, while the 30-day anomaly is used to summarise persistent regional heat patterns, including the NZ coastal heat map.
-
-### Heat events
-
-Heat events are detected from sustained warm conditions, based on consecutive days above the climatological 90th percentile.
-
-The event table includes:
-
-```text
-start_date
-end_date
-duration_days
-peak_date
-max_anomaly_c
-mean_anomaly_c
-severity_class
-is_active
-```
-
-The final heat-event table reflects validated final OISST data. The preliminary heat-event table reflects recent provisional OISST data and is used for possible active-event monitoring in the dashboard.
-
-### Monitoring dashboard logic
-
-The dashboard combines final and preliminary outputs:
-
-- final OISST provides the validated historical context and stable post-baseline monitoring record
-- preliminary OISST provides the most recent provisional monitoring layer
-- anomaly values are always interpreted relative to the fixed 1991–2020 baseline
-
-The NZ coastal heat map uses the latest 30-day SST anomaly by region. This avoids confusing absolute temperature with relative warming: a naturally warmer northern region is not automatically treated as the strongest heat signal unless it is also warmer than expected relative to its own climatology.
-
-### 10-year projection logic
-
-The 10-year projection page is an exploratory scenario based on recent regional SST behaviour. It is not presented as a formal climate forecast.
-
-The projection is intended to help users interpret how recent warming patterns could extend over the next decade, while keeping the observed SST history and projected values visually distinct.
+This threshold provides a seasonally adjusted definition of unusually warm conditions rather than relying on absolute SST values.
 
 ---
 
+## Rolling Monitoring Metrics
 
+To distinguish short-term variability from sustained warming, the monitoring pipeline calculates several rolling metrics.
 
+These include:
 
+```text
+rolling_7d_anomaly_c
 
+rolling_30d_anomaly_c
+
+warming_rate_7d_c
+```
+
+These metrics support:
+
+- short-term monitoring
+- persistent warming assessment
+- dashboard visualisation
+- marine heat-event detection
+
+The 30-day anomaly is also used to generate the NZ Coastal Heat Footprint map.
+
+---
+
+## Marine Heat Events
+
+Marine heat events are identified using sustained periods during which regional SST exceeds the climatological 90th percentile.
+
+Each detected event includes:
+
+```text
+start_date
+
+end_date
+
+duration_days
+
+peak_date
+
+max_anomaly_c
+
+mean_anomaly_c
+
+severity_class
+
+is_active
+```
+
+Separate event tables are maintained for:
+
+- validated Final OISST observations
+- Preliminary OISST monitoring observations
+
+This allows recent events to be monitored while maintaining a validated historical event record.
+
+---
+
+## Monitoring Strategy
+
+The project separates historical analysis from operational monitoring.
+
+**Validated historical analysis**
+
+- Final OISST
+- Fixed climatology
+- Historical anomalies
+- Validated marine heat events
+
+**Operational monitoring**
+
+- Preliminary OISST
+- Latest SST observations
+- Recent anomaly calculations
+- Possible active marine heat events
+
+This separation allows the dashboard to present stable historical analyses while simultaneously providing the most recent environmental conditions.
+
+---
+
+## Dashboard Interpretation
+
+The dashboard is designed to support interpretation rather than prediction.
+
+Several design principles are followed:
+
+- SST anomalies are presented separately from absolute SST.
+- Historical analyses always use validated Final OISST observations.
+- Recent monitoring uses Preliminary OISST observations.
+- Regional anomalies are interpreted relative to each region's historical climatology.
+
+These design choices help distinguish naturally warm regions from regions experiencing unusually warm conditions.
+
+---
+
+## 10-Year Projection
+
+The 10-year projection is included as an exploratory analytical product.
+
+It extends recent regional SST behaviour using trend-based modelling to illustrate how current warming patterns may evolve under a simple continuation scenario.
+
+The projection is intended to support interpretation of recent warming trends and is **not** presented as a climate forecast.
+
+The repository includes two independent implementations:
+
+- **Python**, used for the production PostgreSQL workflow and Power BI dashboard
+- **R (GLS AR(1))**, included as an exploratory statistical comparison
+
+The Power BI dashboard uses the Python-generated projection loaded into PostgreSQL.
+
+---
