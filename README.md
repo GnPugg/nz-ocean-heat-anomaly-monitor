@@ -40,6 +40,8 @@ The project demonstrates how an environmental monitoring workflow can be designe
 - Incremental ingestion of daily NOAA OISST observations
 - Geospatial processing using **GeoPandas** and **xarray**
 - Regional SST aggregation across six New Zealand coastal regions
+- Native NOAA OISST 0.25° coastal-cell analysis within 75 km of the New Zealand mainland
+- Cell-level 1991–2020 SST warming trends across 686 coastal cells
 - Fixed 1991–2020 climatology baseline
 - SST anomaly and marine heat-event detection
 - PostgreSQL analytical data warehouse
@@ -90,6 +92,17 @@ The spatial dashboard highlights the latest regional distribution of marine heat
   <img src="docs/images/heat_footprint.png" width="900">
 </p>
 
+### Coastal SST Warming Trends, 1991–2020
+
+The cell-level dashboard maps linear trends in annual mean SST across 686
+native NOAA OISST 0.25° grid cells selected within 75 km of the New Zealand
+mainland. Interactive cards and tooltips provide historical SST, seasonal
+range, estimated change, and current regional monitoring context.
+
+<p align="center">
+  <img src="docs/images/coastal_sst_warming_trends.png" width="900">
+</p>
+
 
 > **Future cloud deployment**
 >
@@ -134,6 +147,8 @@ The spatial dashboard highlights the latest regional distribution of marine heat
 
 ![10-Year SST Projection](docs/images/nz_10_yr_projection.png)
 
+![Coastal SST Warming Trends](docs/images/coastal_sst_warming_trends.png)
+
 </details>
 
 ---
@@ -158,6 +173,7 @@ The spatial dashboard highlights the latest regional distribution of marine heat
 
 - Incremental daily SST ingestion
 - Geospatial aggregation of NOAA OISST observations
+- Native coastal-cell SST trend analysis across 686 OISST cells
 - Fixed climatology baseline (1991–2020)
 - Regional SST anomaly calculation
 - Marine heat-event detection
@@ -176,6 +192,8 @@ This project is designed as a small production-style environmental monitoring sy
 
 The pipeline automatically downloads daily SST data, aggregates observations into six New Zealand coastal regions, calculates SST anomalies relative to a fixed **1991–2020 climatology**, detects sustained marine heat events, and loads the analytical outputs into PostgreSQL for visualisation in Power BI.
 
+A complementary historical analysis retains the native NOAA OISST 0.25° grid and estimates 1991–2020 annual mean SST trends across 686 coastal cells selected within 75 km of the New Zealand mainland.
+
 The project demonstrates how a complete environmental monitoring workflow can be implemented using modern data engineering practices, including reproducible ETL pipelines, automated validation, containerised execution, and analytical database modelling.
 
 ### Monitoring Questions
@@ -188,6 +206,7 @@ The pipeline is designed to answer practical monitoring questions such as:
 - Are any regions experiencing sustained marine heat events?
 - How do the latest preliminary observations compare with the validated historical record?
 - How have regional SST patterns changed over time?
+- Which coastal cells experienced the strongest SST warming during 1991–2020?
 
 ### Final and Preliminary Monitoring
 
@@ -278,7 +297,7 @@ This approach allows the dashboard to present stable long-term analyses alongsid
 
 The monitoring system aggregates daily sea surface temperature observations into **six broad New Zealand coastal regions**.
 
-Rather than analysing individual OISST grid cells, the pipeline groups observations into regional coastal zones to provide robust, interpretable indicators of large-scale coastal temperature patterns.
+For operational monitoring, the pipeline groups observations into regional coastal zones to provide robust, interpretable indicators of large-scale temperature patterns. A separate historical layer retains individual native OISST cells for spatial analysis of 1991–2020 warming trends.
 
 | Code | Region |
 |------|----------------------|
@@ -297,7 +316,7 @@ assets/regions/nz_coastal_regions.geojson
 
 Because NOAA OISST has a spatial resolution of approximately **0.25° (~25 km)**, the project focuses on **regional coastal monitoring** rather than site-scale or aquaculture farm-scale observations.
 
-The regional approach reduces local noise while providing spatially meaningful indicators suitable for environmental monitoring, anomaly detection, and dashboard reporting.
+The regional approach reduces local noise and supports environmental monitoring and anomaly detection. The complementary cell-level layer provides finer spatial detail for historical SST, seasonal variability, and warming-trend comparisons without subdividing the native OISST grid.
 
 
 ---
@@ -409,7 +428,14 @@ The analytical pipeline produces two complementary datasets.
 - Active event monitoring
 - Combined monitoring tables
 
-Power BI connects directly to PostgreSQL, allowing both validated historical analyses and recent monitoring information to be displayed within a single dashboard.
+**Cell-level historical outputs**
+
+- Coastal-cell reference geometry
+- Historical SST and seasonal features
+- Annual mean SST warming trends for 1991–2020
+- Power BI-ready cell summary view
+
+Power BI connects directly to PostgreSQL, allowing validated historical analyses, cell-level warming patterns, and recent monitoring information to be displayed within a single dashboard.
 
 ---
 
@@ -429,6 +455,7 @@ nz-ocean-heat-anomaly-monitor/
 │   └── regions/
 │       ├── nz_coastal_regions.geojson
 │       ├── nz_coastal_regions_coastal_powerbi.json
+│       ├── nz_coastal_oisst_cells_75km_powerbi.geojson
 │       └── nz_coastal_regions.qmd
 │
 ├── data/
@@ -468,6 +495,7 @@ nz-ocean-heat-anomaly-monitor/
 │   ├── extract/
 │   ├── transform/
 │   ├── analytics/
+│   ├── regions/
 │   ├── pipeline/
 │   └── load/
 │
@@ -487,6 +515,7 @@ The project is organised into modular components following the main stages of th
 | `extract/` | Download and read NOAA OISST datasets |
 | `transform/` | Regional aggregation and preprocessing |
 | `analytics/` | Climatology, anomalies, heat-event detection and projections |
+| `regions/` | Coastal-grid design, historical cell features and warming trends |
 | `pipeline/` | Pipeline orchestration and maintenance workflows |
 | `load/` | PostgreSQL loading utilities |
 | `tests/` | Automated unit tests |
@@ -594,6 +623,7 @@ The SQL scripts in the `sql/` directory are executed in the following order:
 03_tables.sql
 04_index.sql
 05_logging_views.sql
+06_cell_analysis.sql
 ```
 
 These scripts create:
@@ -601,6 +631,7 @@ These scripts create:
 - PostgreSQL extensions
 - database schemas
 - analytical tables
+- cell-level historical analysis tables and Power BI view
 - indexes
 - logging views
 
@@ -660,8 +691,13 @@ Daily Anomalies
         ▼
 Marine Heat Events
         │
-        ▼
-Power BI Dashboard
+        ├──────────────────────┐
+        ▼                      ▼
+Regional Monitoring     Coastal-Cell Trends
+        │                      │
+        └──────────┬───────────┘
+                   ▼
+           Power BI Dashboard
 ```
 
 ---
@@ -780,6 +816,40 @@ is_provisional = true
 ```
 
 These tables support the real-time monitoring pages within the Power BI dashboard.
+
+---
+
+## Cell-Level Historical Analysis
+
+### `core.coastal_cells`
+
+Stores the 686 native NOAA OISST cells selected within 75 km of the
+New Zealand mainland.
+
+| Field | Description |
+|------|-------------|
+| `cell_id` | Stable native-grid cell identifier |
+| `longitude` | Cell-centre longitude |
+| `latitude` | Cell-centre latitude |
+| `grid_version` | Coastal-grid design version |
+| `cell_size_degrees` | Native OISST cell size |
+| `geom_wkt` | Cell polygon geometry |
+
+### `analytics.cell_historical_features`
+
+Stores historical SST characteristics for each coastal cell, including
+mean SST and seasonal behavior derived from the 1991–2020 daily record.
+
+### `analytics.cell_warming_trends`
+
+Stores linear trends in annual mean SST for each coastal cell over
+1991–2020, including trend magnitude, uncertainty, p-value, R², and
+estimated temperature change over the study period.
+
+### `mart.v_powerbi_cell_summary`
+
+Combines cell geometry, historical SST features, and warming-trend
+statistics into the reporting view used by the Power BI cell map.
 
 ---
 
@@ -1087,6 +1157,9 @@ Current test coverage includes:
 | Component | Purpose |
 |-----------|---------|
 | Regional aggregation | Validates assignment of OISST grid cells to coastal regions |
+| Coastal-grid geometry | Verifies native OISST cell selection and geometry integrity |
+| Cell warming trends | Validates annual means and linear SST trend calculations |
+| PostgreSQL cell publication | Verifies validation and atomic table publication |
 | SST anomalies | Verifies climatology and anomaly calculations |
 | Marine heat events | Validates event detection logic |
 | OISST extraction | Checks filename parsing and extraction workflows |
@@ -1107,10 +1180,10 @@ or inside Docker:
 docker compose run --rm test python -m pytest -q
 ```
 
-Expected output:
+Current verified output:
 
 ```text
-36 passed
+85 passed, 3 xfailed
 ```
 
 ---
@@ -1287,7 +1360,7 @@ The Power BI dashboard provides an interactive interface for exploring regional 
 
 It combines validated historical observations with the latest preliminary monitoring data to support both long-term environmental assessment and near-real-time monitoring.
 
-The dashboard is organised into three complementary pages.
+The dashboard is organised into four complementary pages.
 
 ---
 
@@ -1347,6 +1420,36 @@ This page is designed to answer questions such as:
 
 ---
 
+## 4. Coastal SST Warming Trends, 1991–2020
+
+This page presents linear trends in annual mean SST across 686 native
+NOAA OISST 0.25° grid cells selected within 75 km of the New Zealand
+mainland.
+
+The analysis uses validated Final OISST observations from 1991 to 2020.
+Each cell retains its native spatial resolution rather than being
+interpolated into smaller artificial polygons.
+
+Key outputs include:
+
+- SST warming trend in °C per decade
+- estimated SST change over the 1991–2020 period
+- historical mean SST
+- seasonal SST range
+- latitude and longitude in a custom map tooltip
+- current regional monitoring date and 30-day anomaly for context
+
+This page is designed to answer questions such as:
+
+- Which New Zealand coastal waters warmed fastest during 1991–2020?
+- How does long-term warming vary spatially around the coastline?
+- How do mean SST and seasonal variability differ among coastal cells?
+
+The mapped values are historical linear-trend estimates and should not
+be interpreted as forecasts of future SST.
+
+---
+
 ## Dashboard Design Principles
 
 The dashboard is built around three core principles.
@@ -1360,6 +1463,13 @@ Absolute SST and SST anomalies are presented separately because naturally warmer
 ### Combine validated and recent observations
 
 Historical analyses use validated Final OISST observations, while the monitoring layer incorporates Preliminary OISST to provide the most up-to-date regional conditions.
+
+---
+
+### Separate current monitoring from historical cell trends
+
+Current regional indicators are presented alongside, but remain distinct
+from, the fixed 1991–2020 cell-level trend analysis.
 
 ---
 
@@ -1535,6 +1645,25 @@ Several design principles are followed:
 - Regional anomalies are interpreted relative to each region's historical climatology.
 
 These design choices help distinguish naturally warm regions from regions experiencing unusually warm conditions.
+
+---
+
+## Cell-Level Warming Trends
+
+For each of the 686 coastal cells, the pipeline calculates an annual mean
+SST for every year from 1991 through 2020 and fits a linear trend through
+the 30 annual values.
+
+Trend results are reported as:
+
+```text
+°C per decade
+```
+
+The analytical output also retains the trend standard error, p-value,
+R², and estimated SST change over the complete period. These supporting
+statistics remain available for technical interpretation, while the
+dashboard emphasizes trend magnitude and spatial pattern.
 
 ---
 
