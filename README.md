@@ -624,6 +624,7 @@ The SQL scripts in the `sql/` directory are executed in the following order:
 04_index.sql
 05_logging_views.sql
 06_cell_analysis.sql
+07_projection.sql
 ```
 
 These scripts create:
