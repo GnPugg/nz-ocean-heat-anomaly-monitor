@@ -33,13 +33,56 @@ jobs:
       - name: Validate Docker Compose
         run: docker compose config --quiet
 
-      - name: Build and run tests
+      - name: Build test image
+        run: docker compose build test
+
+      - name: Start fresh PostgreSQL
+        run: docker compose up -d --wait postgres
+
+      - name: Verify clean database bootstrap
+        shell: bash
         run: |
-          docker compose up \
-            --build \
-            --abort-on-container-exit \
-            --exit-code-from test \
-            test
+          docker compose exec -T postgres sh -c \
+            'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+          DO $$
+          DECLARE
+              missing_objects text[];
+          BEGIN
+              SELECT array_agg(object_name ORDER BY object_name)
+              INTO missing_objects
+              FROM (
+                  VALUES
+                      ('core.regions'),
+                      ('core.coastal_cells'),
+                      ('analytics.region_daily_sst'),
+                      ('analytics.region_climatology'),
+                      ('analytics.region_daily_anomalies'),
+                      ('analytics.heat_events'),
+                      ('analytics.region_daily_sst_prelim'),
+                      ('analytics.region_daily_anomalies_prelim'),
+                      ('analytics.heat_events_prelim'),
+                      ('analytics.region_daily_anomalies_monitoring'),
+                      ('analytics.cell_historical_features'),
+                      ('analytics.cell_warming_trends'),
+                      ('analytics.region_monthly_sst_projection_10yr'),
+                      ('mart.v_powerbi_cell_summary'),
+                      ('meta.pipeline_runs'),
+                      ('meta.pipeline_log_events'),
+                      ('meta.v_pipeline_step_metrics')
+              ) AS expected(object_name)
+              WHERE to_regclass(object_name) IS NULL;
+
+              IF missing_objects IS NOT NULL THEN
+                  RAISE EXCEPTION
+                      'Missing database objects: %',
+                      missing_objects;
+              END IF;
+          END
+          $$;
+          SQL
+
+      - name: Run test suite
+        run: docker compose run --rm test python -m pytest -q
 
       - name: Display logs after failure
         if: failure()
