@@ -186,6 +186,42 @@ range, estimated change, and current regional monitoring context.
 
 ---
 
+## Review Quick Start
+
+For a local review, create and activate a Python 3.11 environment and install the project dependencies:
+
+```powershell
+pip install -r requirements.txt
+```
+
+Ensure Docker Desktop is running, then execute:
+
+```powershell
+.\scripts\maintenance\setup_local.ps1
+```
+
+This single command:
+
+1. starts PostgreSQL on `localhost:5433`;
+2. waits until the database is healthy;
+3. validates final, preliminary, and monitoring outputs;
+4. publishes all regional PostgreSQL tables atomically;
+5. publishes the 686-cell historical SST analysis;
+6. loads the 10-year regional SST projection;
+7. verifies exact row counts for all required Power BI database objects.
+
+A successful run ends with:
+
+```text
+LOCAL DATABASE SETUP COMPLETED SUCCESSFULLY
+PostgreSQL: localhost:5433
+Database:   nzheat
+```
+
+Power BI can then connect to PostgreSQL through `localhost:5433`.
+
+---
+
 ## Project Overview
 
 This project is designed as a small production-style environmental monitoring system that tracks sea surface temperature (SST) conditions around New Zealand using NOAA Optimum Interpolation Sea Surface Temperature (OISST) observations.
